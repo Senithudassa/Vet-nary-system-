@@ -1,0 +1,210 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  MAIN_ADMIN
+  MINOR_ADMIN
+  VET
+  CUSTOMER
+}
+
+enum ClinicStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  role          Role     @default(CUSTOMER)
+  firstName     String
+  lastName      String
+  phone         String?
+  accountNumber String?  @unique
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  pets                Pet[]
+  staffProfiles       ClinicStaff[]
+  appointmentsAsOwner Appointment[]   @relation("OwnerAppointments")
+  appointmentsAsVet   Appointment[]   @relation("VetAppointments")
+  medicalRecords      MedicalRecord[] @relation("VetMedicalRecords")
+  vaccinations        Vaccination[]   @relation("VetVaccinations")
+  invoices            Invoice[]       @relation("OwnerInvoices")
+  supportTickets      SupportTicket[] @relation("OwnerTickets")
+
+  @@map("users")
+}
+
+model Clinic {
+  id             String       @id @default(uuid())
+  name           String
+  address        String
+  latitude       Float?
+  longitude      Float?
+  phone          String?
+  operatingHours String?
+  status         ClinicStatus @default(PENDING)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  staff          ClinicStaff[]
+  appointments   Appointment[]
+  medicalRecords MedicalRecord[]
+  vaccinations   Vaccination[]
+  invoices       Invoice[]
+  supportTickets SupportTicket[]
+
+  @@map("clinics")
+}
+
+model ClinicStaff {
+  id        String   @id @default(uuid())
+  clinicId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, userId]) // A user can only be linked to a specific clinic once
+  @@map("clinic_staff")
+}
+
+model Pet {
+  id        String   @id @default(uuid())
+  ownerId   String
+  name      String
+  species   String
+  breed     String?
+  weight    Float?
+  microchip String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner          User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  appointments   Appointment[]
+  medicalRecords MedicalRecord[]
+  vaccinations   Vaccination[]
+
+  @@map("pets")
+}
+
+model Appointment {
+  id        String            @id @default(uuid())
+  clinicId  String
+  ownerId   String
+  vetId     String? // Optional until a vet claims/is assigned the appointment
+  petId     String
+  date      DateTime
+  status    AppointmentStatus @default(PENDING)
+  reason    String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  clinic   Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  owner    User      @relation("OwnerAppointments", fields: [ownerId], references: [id], onDelete: Cascade)
+  vet      User?     @relation("VetAppointments", fields: [vetId], references: [id])
+  pet      Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  invoices Invoice[]
+
+  @@map("appointments")
+}
+
+model MedicalRecord {
+  id           String   @id @default(uuid())
+  petId        String
+  vetId        String
+  clinicId     String
+  diagnosis    String
+  treatment    String?
+  prescription String?
+  notes        String?
+  recordDate   DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  pet    Pet    @relation(fields: [petId], references: [id], onDelete: Cascade)
+  vet    User   @relation("VetMedicalRecords", fields: [vetId], references: [id])
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@map("medical_records")
+}
+
+model Vaccination {
+  id               String    @id @default(uuid())
+  petId            String
+  clinicId         String
+  administeredById String
+  vaccineName      String
+  batchNumber      String
+  nextDueDate      DateTime?
+  recordDate       DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+
+  pet            Pet    @relation(fields: [petId], references: [id], onDelete: Cascade)
+  clinic         Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  administeredBy User   @relation("VetVaccinations", fields: [administeredById], references: [id])
+
+  @@map("vaccinations")
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  clinicId      String
+  ownerId       String
+  appointmentId String? // Optional: invoice might be for walk-in counter sales
+  amount        Float
+  status        InvoiceStatus @default(PENDING)
+  issuedAt      DateTime      @default(now())
+  paidAt        DateTime?
+
+  clinic      Clinic       @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  owner       User         @relation("OwnerInvoices", fields: [ownerId], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@map("invoices")
+}
+
+model SupportTicket {
+  id             String       @id @default(uuid())
+  ownerId        String
+  targetClinicId String? // Optional: ticket might be for platform/general support
+  subject        String
+  description    String
+  status         TicketStatus @default(OPEN)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  owner        User    @relation("OwnerTickets", fields: [ownerId], references: [id], onDelete: Cascade)
+  targetClinic Clinic? @relation(fields: [targetClinicId], references: [id])
+
+  @@map("support_tickets")
+}
