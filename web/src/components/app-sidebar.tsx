@@ -32,12 +32,12 @@ const allItems = [
     { title: "Support Tickets", url: "/support", icon: LifeBuoy, requiredRoles: ["main_admin", "minor_admin"], group: "Support" },
 
     // ── Vet ────────────────────────────────────────────
-    { title: "Vet Dashboard", url: "/vet", icon: Activity, requiredRoles: ["main_admin", "vet"], group: "Clinic Operations" },
-    { title: "Front Desk", url: "/assistant", icon: Banknote, requiredRoles: ["main_admin", "vet"], group: "Clinic Operations" },
-    { title: "Appointments", url: "/appointments", icon: Calendar, requiredRoles: ["main_admin", "vet"], group: "Clinic Operations" },
-    { title: "Pet Registry", url: "/pets", icon: PawPrint, requiredRoles: ["main_admin", "vet"], group: "Clinic Operations" },
-    { title: "Patient Records", url: "/records", icon: FileText, requiredRoles: ["main_admin", "vet"], group: "Clinic Operations" },
-    { title: "Invoices", url: "/invoices", icon: Receipt, requiredRoles: ["main_admin", "vet"], group: "Clinic Operations" },
+    { title: "Vet Dashboard", url: "/vet", icon: Activity, requiredRoles: ["vet"], group: "Clinic Operations" },
+    { title: "Front Desk", url: "/assistant", icon: Banknote, requiredRoles: ["vet"], group: "Clinic Operations" },
+    { title: "Appointments", url: "/appointments", icon: Calendar, requiredRoles: ["vet"], group: "Clinic Operations" },
+    { title: "Pet Registry", url: "/pets", icon: PawPrint, requiredRoles: ["vet"], group: "Clinic Operations" },
+    { title: "Patient Records", url: "/records", icon: FileText, requiredRoles: ["vet"], group: "Clinic Operations" },
+    { title: "Invoices", url: "/invoices", icon: Receipt, requiredRoles: ["vet"], group: "Clinic Operations" },
 ]
 
 export function AppSidebar() {
