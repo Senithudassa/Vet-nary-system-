@@ -1,29 +1,71 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Calendar, Stethoscope, AlertCircle, Banknote, Inbox, FileWarning } from "lucide-react"
-import { ProtectedRoute } from "@/components/ui/protected-route"
+import { useState, useMemo } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, Stethoscope, AlertCircle, Banknote, Inbox, FileWarning } from "lucide-react";
+import { ProtectedRoute } from "@/components/ui/protected-route";
+import { mockAppointments, mockSupportTickets, mockInvoices, mockVaccinations } from "@/lib/mock-data";
+import { toast } from "sonner";
 
 export default function VetPage() {
-    const expenses = [
+    const [expenses] = useState([
         { category: "Medical Supplies", amount: "Rs. 45,000", budget: "Rs. 50,000", status: "Under Budget" },
         { category: "Staff Salaries", amount: "Rs. 120,000", budget: "Rs. 120,000", status: "On Target" },
         { category: "Utility & Overheads", amount: "Rs. 18,500", budget: "Rs. 15,000", status: "Over Budget" },
-    ]
+    ]);
 
-    const pendingWork = [
-        { pet: "Max (Golden Retriever)", issue: "Vaccination Overdue", days: 4, severity: "High" },
-        { pet: "Luna (Persian)", issue: "Upcoming Booster", days: -7, severity: "Medium" },
-        { pet: "Rocky (German Shepherd)", issue: "Diet Plan Review", days: 1, severity: "Low" },
-    ]
+    // Build pending work from vaccinations with upcoming due dates
+    const pendingWork = useMemo(() => {
+        const now = new Date();
+        return mockVaccinations
+            .filter(v => v.nextDueDate)
+            .map(v => {
+                const due = new Date(v.nextDueDate!);
+                const daysUntil = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                const pet = (() => {
+                    const petId = v.petId;
+                    // Simple lookup from mock data
+                    const petNames: Record<string, string> = { "p-001": "Max (Golden Retriever)", "p-002": "Luna (Persian)", "p-003": "Rocky (German Shepherd)", "p-005": "Charlie (Labrador)" };
+                    return petNames[petId] || "Unknown Pet";
+                })();
+                return {
+                    pet,
+                    issue: `${v.vaccineName} — ${daysUntil > 0 ? "Upcoming" : "Overdue"}`,
+                    days: -daysUntil, // positive = overdue
+                    severity: daysUntil < 0 ? "High" : daysUntil < 30 ? "Medium" : "Low",
+                };
+            })
+            .sort((a, b) => b.days - a.days);
+    }, []);
 
-    const customerRequests = [
-        { id: "REQ-901", accountNo: "VN-8429", subject: "Prescription Refill Error", from: "Minor Admin Center", status: "Open" },
-        { id: "REQ-902", accountNo: "VN-3310", subject: "X-Ray Report Missing", from: "Minor Admin Center", status: "In Progress" },
-    ]
+    // Customer requests routed from minor admin
+    const [customerRequests, setCustomerRequests] = useState(
+        mockSupportTickets
+            .filter(t => t.targetClinicId && t.status !== "RESOLVED")
+            .map(t => ({
+                id: t.id,
+                accountNo: t.owner?.firstName ? `VN-${Math.floor(Math.random() * 9000) + 1000}` : "—",
+                subject: t.subject,
+                from: "Minor Admin Center",
+                status: t.status === "OPEN" ? "Open" : "In Progress",
+            }))
+    );
+
+    const dailyRevenue = mockInvoices
+        .filter(i => i.status === "PAID")
+        .reduce((sum, i) => sum + i.amount, 0);
+
+    const handleSendReminder = (pet: string) => {
+        toast.success(`Reminder sent for ${pet}`);
+    };
+
+    const handleRespond = (id: string) => {
+        setCustomerRequests(prev => prev.filter(r => r.id !== id));
+        toast.success(`Response sent for ticket ${id.toUpperCase()}`);
+    };
 
     return (
         <ProtectedRoute allowedRoles={["vet", "main_admin"]}>
@@ -34,7 +76,7 @@ export default function VetPage() {
                         <p className="text-muted-foreground mt-1">Manage your independent branch operations, finances, and routed requests.</p>
                     </div>
                     <div className="flex gap-2 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1"><Calendar className="h-4 w-4" /> Today: {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        <span className="flex items-center gap-1"><Calendar className="h-4 w-4" /> Today: {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
                     </div>
                 </div>
 
@@ -42,12 +84,12 @@ export default function VetPage() {
                 <div className="grid gap-4 md:grid-cols-3">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Daily Revenue</CardTitle>
+                            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
                             <Banknote className="h-4 w-4 text-green-600" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-green-600">Rs. 42,500</div>
-                            <p className="text-xs text-muted-foreground">Collected by Assistant Till</p>
+                            <div className="text-2xl font-bold text-green-600">Rs. {dailyRevenue.toLocaleString()}</div>
+                            <p className="text-xs text-muted-foreground">Collected via invoices</p>
                         </CardContent>
                     </Card>
                     <Card>
@@ -66,20 +108,19 @@ export default function VetPage() {
                             <Inbox className="h-4 w-4 text-zinc-400" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{customerRequests.length} Unread</div>
+                            <div className="text-2xl font-bold">{customerRequests.length} Pending</div>
                             <p className="text-xs text-zinc-400">Escalated from Contact Center</p>
                         </CardContent>
                     </Card>
                 </div>
 
                 <div className="grid gap-8 grid-cols-1 lg:grid-cols-2">
-
-                    {/* Independent Financials (Read-only data, hashed on backend) */}
+                    {/* Independent Financials */}
                     <Card>
                         <CardHeader>
                             <CardTitle>Operating Expenses & Budget</CardTitle>
                             <CardDescription>
-                                Your branch financials. Note: Main admins can view these hashed totals to calculate your platform discount tiers.
+                                Your branch financials. Main admins can view hashed totals to calculate your platform discount tiers.
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -99,7 +140,7 @@ export default function VetPage() {
                                             <TableCell>{exp.amount}</TableCell>
                                             <TableCell className="text-muted-foreground">{exp.budget}</TableCell>
                                             <TableCell className="text-right">
-                                                <Badge variant={exp.status === 'Over Budget' ? 'destructive' : exp.status === 'Under Budget' ? 'default' : 'secondary'}>
+                                                <Badge variant={exp.status === "Over Budget" ? "destructive" : exp.status === "Under Budget" ? "default" : "secondary"}>
                                                     {exp.status}
                                                 </Badge>
                                             </TableCell>
@@ -114,16 +155,14 @@ export default function VetPage() {
                     <Card>
                         <CardHeader>
                             <CardTitle>Pending Clinical Work</CardTitle>
-                            <CardDescription>
-                                Missed or upcoming patient vaccinations and reviews.
-                            </CardDescription>
+                            <CardDescription>Missed or upcoming patient vaccinations and reviews.</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
-                                {pendingWork.map((work) => (
-                                    <div key={work.pet} className="flex items-center justify-between p-4 border rounded-lg">
+                                {pendingWork.slice(0, 5).map((work, idx) => (
+                                    <div key={idx} className="flex items-center justify-between p-4 border rounded-lg">
                                         <div className="flex items-start gap-3">
-                                            <AlertCircle className={`mt-0.5 h-5 w-5 ${work.severity === 'High' ? 'text-red-500' : work.severity === 'Medium' ? 'text-amber-500' : 'text-blue-500'}`} />
+                                            <AlertCircle className={`mt-0.5 h-5 w-5 ${work.severity === "High" ? "text-red-500" : work.severity === "Medium" ? "text-amber-500" : "text-blue-500"}`} />
                                             <div>
                                                 <p className="font-semibold text-sm">{work.pet}</p>
                                                 <p className="text-xs text-muted-foreground">{work.issue}</p>
@@ -131,7 +170,9 @@ export default function VetPage() {
                                         </div>
                                         <div className="text-right">
                                             <p className="text-xs font-medium">{work.days > 0 ? `${work.days} days overdue` : `In ${Math.abs(work.days)} days`}</p>
-                                            <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => console.log(`Send Reminder for ${work.pet}`)}>Send Reminder</Button>
+                                            <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => handleSendReminder(work.pet)}>
+                                                Send Reminder
+                                            </Button>
                                         </div>
                                     </div>
                                 ))}
@@ -147,7 +188,7 @@ export default function VetPage() {
                                 <CardTitle>Customer Contact Center Requests</CardTitle>
                             </div>
                             <CardDescription className="pt-2">
-                                Tickets routed dynamically to your branch from the Minor Admin remote center based on User Account Numbers.
+                                Tickets routed to your branch from the Minor Admin remote center based on User Account Numbers.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="pt-6">
@@ -163,17 +204,21 @@ export default function VetPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {customerRequests.map((req) => (
+                                    {customerRequests.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">No pending requests. All clear!</TableCell>
+                                        </TableRow>
+                                    ) : customerRequests.map((req) => (
                                         <TableRow key={req.id}>
-                                            <TableCell className="font-medium text-muted-foreground">{req.id}</TableCell>
+                                            <TableCell className="font-medium text-muted-foreground">{req.id.toUpperCase()}</TableCell>
                                             <TableCell className="font-mono font-semibold">{req.accountNo}</TableCell>
                                             <TableCell>{req.subject}</TableCell>
                                             <TableCell className="text-muted-foreground text-xs">{req.from}</TableCell>
                                             <TableCell>
-                                                <Badge variant={req.status === 'Open' ? 'destructive' : 'secondary'}>{req.status}</Badge>
+                                                <Badge variant={req.status === "Open" ? "destructive" : "secondary"}>{req.status}</Badge>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <Button size="sm" onClick={() => console.log(`Respond to ${req.id}`)}>Respond</Button>
+                                                <Button size="sm" onClick={() => handleRespond(req.id)}>Respond</Button>
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -181,7 +226,6 @@ export default function VetPage() {
                             </Table>
                         </CardContent>
                     </Card>
-
                 </div>
             </div>
         </ProtectedRoute>
