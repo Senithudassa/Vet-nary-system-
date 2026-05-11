@@ -48,13 +48,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={26} name="map.fill" color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="ai-checker"
-        options={{
-          title: 'Scanner',
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="camera.fill" color={color} />,
-        }}
-      />
+
       <Tabs.Screen
         name="chatbot"
         options={{

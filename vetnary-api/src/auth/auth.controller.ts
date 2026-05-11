@@ -1,7 +1,25 @@
-import { Controller, Post, Body, Get, UseGuards, Request } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterClinicDto, RegisterCustomerDto, RefreshTokenDto } from './dto/auth.dto';
+import {
+  LoginDto,
+  RegisterClinicDto,
+  RegisterCustomerDto,
+  RefreshTokenDto,
+  RegisterDoctorDto,
+} from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @ApiTags('Authentication')
@@ -16,6 +34,13 @@ export class AuthController {
     return this.authService.registerCustomer(dto);
   }
 
+  @Post('register/doctor')
+  @ApiOperation({ summary: 'Register a new doctor' })
+  @ApiResponse({ status: 201, description: 'Doctor registered successfully' })
+  registerDoctor(@Body() dto: RegisterDoctorDto) {
+    return this.authService.registerDoctor(dto);
+  }
+
   @Post('register/clinic')
   @ApiOperation({ summary: 'Register a new clinic' })
   @ApiResponse({ status: 201, description: 'Clinic registered successfully' })
@@ -28,6 +53,20 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Login successful' })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Post('login/clinic')
+  @ApiOperation({ summary: 'Login for clinic owners' })
+  @ApiResponse({ status: 200, description: 'Clinic login successful' })
+  loginClinic(@Body() dto: LoginDto) {
+    return this.authService.loginClinic(dto);
+  }
+
+  @Post('login/admin')
+  @ApiOperation({ summary: 'Login for admins' })
+  @ApiResponse({ status: 200, description: 'Admin login successful' })
+  loginAdmin(@Body() dto: LoginDto) {
+    return this.authService.loginAdmin(dto);
   }
 
   @Post('refresh')

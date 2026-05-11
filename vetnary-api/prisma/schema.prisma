@@ -47,18 +47,23 @@ model User {
   lastName      String
   phone         String?
   accountNumber String?  @unique
+  licenseNumber String?  @unique
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  pets                Pet[]
-  staffProfiles       ClinicStaff[]
-  appointmentsAsOwner Appointment[]   @relation("OwnerAppointments")
-  appointmentsAsVet   Appointment[]   @relation("VetAppointments")
-  medicalRecords      MedicalRecord[] @relation("VetMedicalRecords")
-  vaccinations        Vaccination[]   @relation("VetVaccinations")
-  invoices            Invoice[]       @relation("OwnerInvoices")
-  supportTickets      SupportTicket[] @relation("OwnerTickets")
+  pets                   Pet[]
+  staffProfiles          ClinicStaff[]
+  ownedClinics           Clinic[]        @relation("ClinicOwner")
+  appointmentsAsOwner    Appointment[]   @relation("OwnerAppointments")
+  appointmentsAsVet      Appointment[]   @relation("VetAppointments")
+  medicalRecords         MedicalRecord[] @relation("VetMedicalRecords")
+  vaccinations           Vaccination[]   @relation("VetVaccinations")
+  invoices               Invoice[]       @relation("OwnerInvoices")
+  supportTickets         SupportTicket[] @relation("OwnerTickets")
+  assignedTicketsAsVet   SupportTicket[] @relation("VetTickets")
+  assignedTicketsAsAdmin SupportTicket[] @relation("AdminTickets")
+  prescriptionsAsVet     Prescription[]  @relation("VetPrescriptions")
 
   @@map("users")
 }
@@ -72,15 +77,18 @@ model Clinic {
   phone          String?
   operatingHours String?
   status         ClinicStatus @default(PENDING)
+  ownerId        String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
   staff          ClinicStaff[]
+  owner          User?           @relation("ClinicOwner", fields: [ownerId], references: [id])
   appointments   Appointment[]
   medicalRecords MedicalRecord[]
   vaccinations   Vaccination[]
   invoices       Invoice[]
   supportTickets SupportTicket[]
+  prescriptions  Prescription[]
 
   @@map("clinics")
 }
@@ -99,21 +107,23 @@ model ClinicStaff {
 }
 
 model Pet {
-  id        String   @id @default(uuid())
-  ownerId   String
-  name      String
-  species   String
-  breed     String?
-  weight    Float?
-  microchip String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(uuid())
+  ownerId    String
+  name       String
+  species    String
+  breed      String?
+  weight     Float?
+  microchip  String?
+  isActive   Boolean  @default(true)
+  isVerified Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   owner          User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   appointments   Appointment[]
   medicalRecords MedicalRecord[]
   vaccinations   Vaccination[]
+  prescriptions  Prescription[]
 
   @@map("pets")
 }
@@ -130,11 +140,12 @@ model Appointment {
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
 
-  clinic   Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  owner    User      @relation("OwnerAppointments", fields: [ownerId], references: [id], onDelete: Cascade)
-  vet      User?     @relation("VetAppointments", fields: [vetId], references: [id])
-  pet      Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
-  invoices Invoice[]
+  clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  owner         User           @relation("OwnerAppointments", fields: [ownerId], references: [id], onDelete: Cascade)
+  vet           User?          @relation("VetAppointments", fields: [vetId], references: [id])
+  pet           Pet            @relation(fields: [petId], references: [id], onDelete: Cascade)
+  invoices      Invoice[]
+  prescriptions Prescription[]
 
   @@map("appointments")
 }
@@ -151,9 +162,10 @@ model MedicalRecord {
   recordDate   DateTime @default(now())
   createdAt    DateTime @default(now())
 
-  pet    Pet    @relation(fields: [petId], references: [id], onDelete: Cascade)
-  vet    User   @relation("VetMedicalRecords", fields: [vetId], references: [id])
-  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  pet           Pet            @relation(fields: [petId], references: [id], onDelete: Cascade)
+  vet           User           @relation("VetMedicalRecords", fields: [vetId], references: [id])
+  clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  prescriptions Prescription[]
 
   @@map("medical_records")
 }
@@ -194,17 +206,45 @@ model Invoice {
 }
 
 model SupportTicket {
-  id             String       @id @default(uuid())
-  ownerId        String
-  targetClinicId String? // Optional: ticket might be for platform/general support
-  subject        String
-  description    String
-  status         TicketStatus @default(OPEN)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id              String       @id @default(uuid())
+  ownerId         String
+  targetClinicId  String? // Optional: ticket might be for platform/general support
+  assignedVetId   String?
+  assignedAdminId String?
+  subject         String
+  description     String
+  status          TicketStatus @default(OPEN)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
-  owner        User    @relation("OwnerTickets", fields: [ownerId], references: [id], onDelete: Cascade)
-  targetClinic Clinic? @relation(fields: [targetClinicId], references: [id])
+  owner         User    @relation("OwnerTickets", fields: [ownerId], references: [id], onDelete: Cascade)
+  assignedVet   User?   @relation("VetTickets", fields: [assignedVetId], references: [id])
+  assignedAdmin User?   @relation("AdminTickets", fields: [assignedAdminId], references: [id])
+  targetClinic  Clinic? @relation(fields: [targetClinicId], references: [id])
 
   @@map("support_tickets")
+}
+
+model Prescription {
+  id              String   @id @default(uuid())
+  petId           String
+  vetId           String
+  clinicId        String
+  medicalRecordId String?
+  appointmentId   String?
+  medicineName    String
+  dosage          String?
+  frequency       String?
+  duration        String?
+  notes           String?
+  issuedAt        DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  pet           Pet            @relation(fields: [petId], references: [id], onDelete: Cascade)
+  vet           User           @relation("VetPrescriptions", fields: [vetId], references: [id])
+  clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  medicalRecord MedicalRecord? @relation(fields: [medicalRecordId], references: [id], onDelete: SetNull)
+  appointment   Appointment?   @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@map("prescriptions")
 }

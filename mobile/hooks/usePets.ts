@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from "react";
 
-import { api } from '@/lib/api';
+import { api } from "@/lib/api";
 
 export interface Pet {
   id: string;
@@ -10,6 +10,7 @@ export interface Pet {
   gender?: string;
   weight?: number;
   owner_id?: string;
+  isVerified?: boolean;
 }
 
 export function usePets() {
@@ -36,11 +37,11 @@ export function usePets() {
     setLoading(true);
     try {
       const data = await api.addPet(petData);
-      setPets(prev => [...prev, data]);
+      setPets((prev) => [...prev, data]);
       return { data, error: null };
     } catch (error: any) {
       console.error("Failed to add pet:", error);
-      return { data: null, error: error.message || 'Failed to add pet' };
+      return { data: null, error: error.message || "Failed to add pet" };
     } finally {
       setLoading(false);
     }

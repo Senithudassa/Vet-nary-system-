@@ -10,6 +10,8 @@ import { AppointmentsModule } from './appointments/appointments.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { AdminModule } from './admin/admin.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { AiModule } from './ai/ai.module';
+import { TicketsModule } from './tickets/tickets.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { PrismaModule } from './prisma/prisma.module';
     InvoicesModule,
     AdminModule,
     PrismaModule,
+    AiModule,
+    TicketsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

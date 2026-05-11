@@ -7,6 +7,7 @@ This document provides a comprehensive overview of the VetNary Backend API endpo
 ---
 
 ## Table of Contents
+
 1. [Authentication](#1-authentication)
 2. [User Management](#2-user-management)
 3. [Clinic Operations](#3-clinic-operations)
@@ -15,13 +16,16 @@ This document provides a comprehensive overview of the VetNary Backend API endpo
 6. [Invoicing & Billing](#6-invoicing--billing)
 7. [VetBook & Medical Records](#7-vetbook--medical-records)
 8. [Support & Admin](#8-support--admin)
+9. [AI Features](#9-ai-features)
 
 ---
 
 ## 1. Authentication
 
 ### Register Customer
+
 Registers a new customer account.
+
 - **Route**: `POST /auth/register/customer`
 - **Request Body**:
   ```json
@@ -42,7 +46,9 @@ Registers a new customer account.
   ```
 
 ### Register Clinic
+
 Registers a new clinic account (Vet role).
+
 - **Route**: `POST /auth/register/clinic`
 - **Request Body**:
   ```json
@@ -66,7 +72,9 @@ Registers a new clinic account (Vet role).
   ```
 
 ### Login
+
 Authenticates a user and returns access/refresh tokens.
+
 - **Route**: `POST /auth/login`
 - **Request Body**:
   ```json
@@ -84,7 +92,9 @@ Authenticates a user and returns access/refresh tokens.
   ```
 
 ### Refresh Token
+
 Refresh an expired access token.
+
 - **Route**: `POST /auth/refresh`
 - **Request Body**:
   ```json
@@ -101,6 +111,7 @@ Refresh an expired access token.
   ```
 
 ### Logout
+
 - **Route**: `POST /auth/logout`
 - **Auth**: Bearer Token required.
 - **Response**: `200 OK`
@@ -111,6 +122,7 @@ Refresh an expired access token.
   ```
 
 ### Get My Profile
+
 - **Route**: `GET /auth/me`
 - **Auth**: Bearer Token required.
 - **Response**: `200 OK`
@@ -131,6 +143,7 @@ Refresh an expired access token.
 ## 2. User Management (Main Admin Only)
 
 ### List All Users
+
 - **Route**: `GET /users`
 - **Query Params**: `search`, `role`, `page`, `limit`
 - **Response**: `200 OK`
@@ -157,6 +170,7 @@ Refresh an expired access token.
   ```
 
 ### Update User Role
+
 - **Route**: `PATCH /users/:id/role`
 - **Request Body**: `{ "role": "VET" }`
 - **Response**: `200 OK`
@@ -172,6 +186,7 @@ Refresh an expired access token.
 ## 3. Clinic Operations
 
 ### List Approved Clinics (Public)
+
 - **Route**: `GET /clinics`
 - **Response**: `200 OK`
   ```json
@@ -187,6 +202,7 @@ Refresh an expired access token.
   ```
 
 ### Get Clinic Details (Public)
+
 - **Route**: `GET /clinics/:id`
 - **Response**: `200 OK`
   ```json
@@ -201,6 +217,7 @@ Refresh an expired access token.
   ```
 
 ### Update Status (Main Admin)
+
 - **Route**: `PATCH /clinics/:id/status`
 - **Request Body**: `{ "status": "APPROVED" }`
 - **Response**: `200 OK`
@@ -212,6 +229,7 @@ Refresh an expired access token.
   ```
 
 ### Update Clinic (Vet/Admin)
+
 - **Route**: `PATCH /clinics/:id`
 - **Request Body**: `{ "name": "New Name", ... }`
 - **Response**: `200 OK`
@@ -229,6 +247,7 @@ Refresh an expired access token.
 ## 4. Pet Management (Customer/Vet)
 
 ### List My Pets
+
 - **Route**: `GET /pets`
 - **Response**: `200 OK`
   ```json
@@ -244,6 +263,7 @@ Refresh an expired access token.
   ```
 
 ### Add Pet
+
 - **Route**: `POST /pets`
 - **Request Body**: `{ "name": "Buddy", "species": "Dog", ... }`
 - **Response**: `201 Created`
@@ -257,6 +277,7 @@ Refresh an expired access token.
   ```
 
 ### Get Pet Details
+
 - **Route**: `GET /pets/:id`
 - **Response**: `200 OK`
   ```json
@@ -276,6 +297,7 @@ Refresh an expired access token.
 ## 5. Appointments & Queue Management
 
 ### Book Appointment
+
 - **Route**: `POST /appointments`
 - **Request Body**: `{ "clinicId": "uuid", "petId": "uuid", "date": "...", "reason": "..." }`
 - **Response**: `201 Created`
@@ -288,6 +310,7 @@ Refresh an expired access token.
   ```
 
 ### Get Queue (Vet)
+
 - **Route**: `GET /clinics/:clinicId/queue`
 - **Response**: `200 OK`
   ```json
@@ -306,6 +329,7 @@ Refresh an expired access token.
 ## 6. Invoicing & Billing
 
 ### Generate Invoice (Vet)
+
 - **Route**: `POST /invoices`
 - **Request Body**: `{ "clinicId": "uuid", "ownerId": "uuid", "amount": 75.0 }`
 - **Response**: `201 Created`
@@ -319,6 +343,7 @@ Refresh an expired access token.
   ```
 
 ### Mark Paid
+
 - **Route**: `PATCH /invoices/:id/pay`
 - **Response**: `200 OK`
   ```json
@@ -334,6 +359,7 @@ Refresh an expired access token.
 ## 7. VetBook & Medical Records
 
 ### Medical Timeline
+
 - **Route**: `GET /vetbook/:petId`
 - **Response**: `200 OK`
   ```json
@@ -359,6 +385,7 @@ Refresh an expired access token.
 ## 8. Support & Admin
 
 ### Submit Ticket
+
 - **Route**: `POST /support-tickets`
 - **Request Body**: `{ "subject": "...", "description": "..." }`
 - **Response**: `201 Created`
@@ -371,6 +398,7 @@ Refresh an expired access token.
   ```
 
 ### Platform Stats (Main Admin)
+
 - **Route**: `GET /admin/stats`
 - **Response**: `200 OK`
   ```json
@@ -378,6 +406,105 @@ Refresh an expired access token.
     "usersCount": 150,
     "clinicsCount": 20,
     "appointmentsCount": 500,
-    "totalRevenue": 12500.50
+    "totalRevenue": 12500.5
   }
   ```
+
+---
+
+## 9. AI Features
+
+> **Auth**: All AI endpoints require a Bearer Token (`Authorization: Bearer <access_token>`).
+
+### Scan Pet Skin
+
+Upload a pet skin image for AI-powered disease detection. Returns the identified condition, confidence score, clinical recommendation, and the bounding box of the affected area.
+
+- **Route**: `POST /ai/scan-skin`
+- **Auth**: Bearer Token required.
+- **Content-Type**: `multipart/form-data`
+- **Form Fields**:
+
+  | Field   | Type | Required | Description                                      |
+  | ------- | ---- | -------- | ------------------------------------------------ |
+  | `image` | File | ✅ Yes   | The pet skin image (JPEG, PNG, WEBP, HEIC, HEIF) |
+
+- **Example (React Native / Expo)**:
+
+  ```ts
+  const formData = new FormData();
+  formData.append("image", {
+    uri: imageUri, // local file URI from camera / gallery
+    name: "scan.jpg",
+    type: "image/jpeg",
+  } as any);
+
+  const response = await fetch(`${BASE_URL}/ai/scan-skin`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  ```
+
+- **Response**: `201 Created`
+
+  ```json
+  {
+    "condition": "Ringworm (Dermatophytosis)",
+    "confidence": 87,
+    "recommendation": "Apply antifungal cream twice daily and consult a vet within 48 hours.",
+    "affectedArea": {
+      "x": 0.3,
+      "y": 0.25,
+      "width": 0.4,
+      "height": 0.35
+    },
+    "imageDimensions": {
+      "width": 1280,
+      "height": 960
+    }
+  }
+  ```
+
+- **Error Responses**:
+
+  | Status | Description                          |
+  | ------ | ------------------------------------ |
+  | `400`  | No image file provided               |
+  | `401`  | Unauthorized – missing/invalid token |
+  | `500`  | AI analysis failed (Gemini error)    |
+
+> **`affectedArea` coordinates** are expressed as **fractions** of the full image dimensions (0.0 – 1.0).
+> Multiply by `imageDimensions.width` / `imageDimensions.height` to get pixel values.
+
+---
+
+### Veterinary Chat
+
+Chat with VetBot, an AI assistant specialising exclusively in veterinary medicine and pet health. Off-topic questions are politely refused.
+
+- **Route**: `POST /ai/chat`
+- **Auth**: Bearer Token required.
+- **Content-Type**: `application/json`
+- **Request Body**:
+
+  ```json
+  {
+    "message": "My dog has been scratching a lot. What could it be?"
+  }
+  ```
+
+- **Response**: `201 Created`
+
+  ```json
+  {
+    "reply": "Excessive scratching in dogs can be caused by allergies (food or environmental), fleas, or dry skin. I recommend checking for visible parasites and consulting your vet if the scratching persists."
+  }
+  ```
+
+- **Error Responses**:
+
+  | Status | Description                           |
+  | ------ | ------------------------------------- |
+  | `401`  | Unauthorized – missing/invalid token  |
+  | `500`  | Chat generation failed (Gemini error) |

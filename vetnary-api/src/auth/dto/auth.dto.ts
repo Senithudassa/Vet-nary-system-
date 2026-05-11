@@ -27,7 +27,11 @@ export class RegisterCustomerDto {
   phone?: string;
 }
 
-export class RegisterClinicDto extends RegisterCustomerDto {
+export class RegisterClinicDto {
+  @ApiProperty({ example: 'uuid-of-doctor' })
+  @IsNotEmpty()
+  @IsString()
+  ownerId: string;
   @ApiProperty({ example: 'Happy Paws Clinic' })
   @IsNotEmpty()
   @IsString()
@@ -42,6 +46,13 @@ export class RegisterClinicDto extends RegisterCustomerDto {
   @IsOptional()
   @IsString()
   operatingHours?: string;
+}
+
+export class RegisterDoctorDto extends RegisterCustomerDto {
+  @ApiProperty({ example: 'VET-12345' })
+  @IsNotEmpty()
+  @IsString()
+  licenseNumber: string;
 }
 
 export class LoginDto {

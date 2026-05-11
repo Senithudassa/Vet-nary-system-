@@ -1,32 +1,62 @@
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Activity, ShieldCheck, Clock, GitMerge, FileType2, Target, AlertTriangle } from "lucide-react"
-import { ProtectedRoute } from "@/components/ui/protected-route"
+import { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Activity, ShieldCheck, Clock, GitMerge, Target, AlertTriangle } from "lucide-react";
+import { ProtectedRoute } from "@/components/ui/protected-route";
+import { mockClinics, mockPlatformStats } from "@/lib/mock-data";
+import { toast } from "sonner";
 
 export default function MainAdminPage() {
+    const stats = mockPlatformStats;
 
-    // Tech Support Live View
-    const activeClinics = [
-        { id: "CL-01", name: "River Edge Vet", status: "Online", errors: 0, lastSync: "2 mins ago" },
-        { id: "CL-02", name: "Pet Care Center", status: "Online", errors: 2, lastSync: "1 min ago" },
-        { id: "CL-04", name: "City Vet Clinic", status: "Offline", errors: 0, lastSync: "4 hrs ago" },
-    ]
+    const [activeClinics, setActiveClinics] = useState(
+        mockClinics.filter(c => c.status === "APPROVED").map(c => ({
+            id: c.id,
+            name: c.name,
+            status: "Online" as "Online" | "Offline",
+            errors: Math.floor(Math.random() * 3),
+            lastSync: `${Math.floor(Math.random() * 10) + 1} mins ago`,
+        }))
+    );
 
-    // Git-style Authorization Queue
-    const pendingCommits = [
-        { id: "PR-892", commitMsg: "Update CL-01 Platform Discount Tier to 20%", author: "Admin Sarah", time: "10:15 AM", diff: "+5% Discount", risk: "Low" },
-        { id: "PR-893", commitMsg: "Reset Password for Dr. Silva (CL-02)", author: "Admin Mike", time: "11:05 AM", diff: "Auth Token Reset", risk: "High" },
-    ]
+    const [pendingCommits, setPendingCommits] = useState([
+        { id: "PR-892", commitMsg: "Update CL-01 Platform Discount Tier to 20%", author: "Admin Sarah", time: "10:15 AM", diff: "+5% Discount", risk: "Low" as const },
+        { id: "PR-893", commitMsg: "Reset Password for Dr. Silva (CL-02)", author: "Admin Mike", time: "11:05 AM", diff: "Auth Token Reset", risk: "High" as const },
+        { id: "PR-894", commitMsg: "Add new vaccination type to formulary", author: "Admin Sarah", time: "11:30 AM", diff: "New Row", risk: "Low" as const },
+    ]);
 
-    // 12:00 PM Deployment Queue
-    const approvedDeployments = [
-        { id: "PR-890", commitMsg: "Fix timezone bug in VetBook timeline UI", author: "System Auto", approvedBy: "Main Admin Dev" },
-        { id: "PR-891", commitMsg: "Revoke API access for suspended CL-03", author: "Admin Sarah", approvedBy: "Main Admin Dev" },
-    ]
+    const [approvedDeployments, setApprovedDeployments] = useState([
+        { id: "PR-890", commitMsg: "Fix timezone bug in VetBook timeline UI", author: "System Auto", approvedBy: "Main Admin" },
+        { id: "PR-891", commitMsg: "Revoke API access for suspended CL-03", author: "Admin Sarah", approvedBy: "Main Admin" },
+    ]);
+
+    const handleAuthorize = (id: string) => {
+        const commit = pendingCommits.find(c => c.id === id);
+        if (commit) {
+            setPendingCommits(prev => prev.filter(c => c.id !== id));
+            setApprovedDeployments(prev => [...prev, {
+                id: commit.id,
+                commitMsg: commit.commitMsg,
+                author: commit.author,
+                approvedBy: "Main Admin",
+            }]);
+            toast.success(`${id} authorized and queued for deployment.`);
+        }
+    };
+
+    const handleReject = (id: string) => {
+        setPendingCommits(prev => prev.filter(c => c.id !== id));
+        toast.error(`${id} has been rejected.`);
+    };
+
+    const handleEmergencyHalt = () => {
+        setApprovedDeployments([]);
+        toast.warning("Emergency halt activated. All pending deployments cleared.");
+    };
 
     return (
         <ProtectedRoute allowedRoles={["main_admin"]}>
@@ -34,10 +64,12 @@ export default function MainAdminPage() {
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">System Control (Main Admin)</h1>
-                        <p className="text-muted-foreground mt-1">Tech support, branch impersonation, and Git-style daily deploy authorizations.</p>
+                        <p className="text-muted-foreground mt-1">Tech support, branch monitoring, and Git-style daily deploy authorizations.</p>
                     </div>
                     <div className="flex gap-2">
-                        <Button variant="destructive" onClick={() => console.log("Emergency Halt")}><AlertTriangle className="mr-2 h-4 w-4" /> Emergency Halt Deploy</Button>
+                        <Button variant="destructive" onClick={handleEmergencyHalt}>
+                            <AlertTriangle className="mr-2 h-4 w-4" /> Emergency Halt Deploy
+                        </Button>
                     </div>
                 </div>
 
@@ -59,7 +91,7 @@ export default function MainAdminPage() {
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-green-600">12:00 PM</div>
-                            <p className="text-xs text-muted-foreground mt-1">2 updates queued for push</p>
+                            <p className="text-xs text-muted-foreground mt-1">{approvedDeployments.length} updates queued for push</p>
                         </CardContent>
                     </Card>
                     <Card>
@@ -68,14 +100,17 @@ export default function MainAdminPage() {
                             <Activity className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">38 / 42 Online</div>
-                            <p className="text-xs text-amber-600 mt-1">2 non-critical errors reported</p>
+                            <div className="text-2xl font-bold">
+                                {activeClinics.filter(c => c.status === "Online").length} / {activeClinics.length} Online
+                            </div>
+                            <p className="text-xs text-amber-600 mt-1">
+                                {activeClinics.reduce((sum, c) => sum + c.errors, 0)} non-critical errors reported
+                            </p>
                         </CardContent>
                     </Card>
                 </div>
 
                 <div className="grid gap-8 grid-cols-1 lg:grid-cols-2">
-
                     {/* Tech Support Live View & Impersonation */}
                     <Card>
                         <CardHeader>
@@ -97,15 +132,17 @@ export default function MainAdminPage() {
                                 <TableBody>
                                     {activeClinics.map((clinic) => (
                                         <TableRow key={clinic.id}>
-                                            <TableCell className="font-medium">{clinic.id} - {clinic.name}</TableCell>
+                                            <TableCell className="font-medium">{clinic.name}</TableCell>
                                             <TableCell>
-                                                <Badge variant={clinic.status === 'Online' ? 'default' : 'secondary'} className={clinic.status === 'Online' ? 'bg-green-500 hover:bg-green-600' : ''}>
+                                                <Badge variant={clinic.status === "Online" ? "default" : "secondary"} className={clinic.status === "Online" ? "bg-green-500 hover:bg-green-600" : ""}>
                                                     {clinic.status}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className={clinic.errors > 0 ? 'text-amber-500 font-bold' : 'text-muted-foreground'}>{clinic.errors}</TableCell>
+                                            <TableCell className={clinic.errors > 0 ? "text-amber-500 font-bold" : "text-muted-foreground"}>{clinic.errors}</TableCell>
                                             <TableCell className="text-right">
-                                                <Button variant="outline" size="sm" onClick={() => console.log(`Impersonating ${clinic.id}`)}>Impersonate View</Button>
+                                                <Button variant="outline" size="sm" onClick={() => toast.info(`Impersonating ${clinic.name} dashboard...`)}>
+                                                    Impersonate View
+                                                </Button>
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -119,12 +156,14 @@ export default function MainAdminPage() {
                         <CardHeader className="bg-primary/5 pb-4 border-b">
                             <CardTitle className="flex items-center gap-2"><GitMerge className="h-5 w-5 text-primary" /> Commit Authorizations</CardTitle>
                             <CardDescription>
-                                Review system configuration changes proposed by Minor Admins ("Pull Requests"). Approved changes are merged into the 12:00 PM deploy.
+                                Review system configuration changes proposed by Minor Admins. Approved changes are merged into the 12:00 PM deploy.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="pt-6">
                             <div className="space-y-4">
-                                {pendingCommits.map((commit) => (
+                                {pendingCommits.length === 0 ? (
+                                    <p className="text-center text-muted-foreground py-6">No pending commits. All clear!</p>
+                                ) : pendingCommits.map((commit) => (
                                     <div key={commit.id} className="flex flex-col gap-3 p-4 border rounded-lg bg-card">
                                         <div className="flex justify-between items-start">
                                             <div>
@@ -134,21 +173,20 @@ export default function MainAdminPage() {
                                                 </div>
                                                 <p className="text-xs text-muted-foreground">Authored by {commit.author} at {commit.time}</p>
                                             </div>
-                                            <Badge variant={commit.risk === 'High' ? 'destructive' : 'secondary'}>{commit.risk} Risk</Badge>
+                                            <Badge variant={commit.risk === "High" ? "destructive" : "secondary"}>{commit.risk} Risk</Badge>
                                         </div>
                                         <div className="bg-muted/50 p-2 rounded text-xs font-mono text-green-600 border border-green-500/20">
                                             {commit.diff}
                                         </div>
                                         <div className="flex gap-2 justify-end mt-2">
-                                            <Button variant="outline" size="sm" className="h-8" onClick={() => console.log(`Reject ${commit.id}`)}>Reject</Button>
-                                            <Button size="sm" className="h-8 bg-primary" onClick={() => console.log(`Authorize Merge ${commit.id}`)}>Authorize Merge</Button>
+                                            <Button variant="outline" size="sm" className="h-8" onClick={() => handleReject(commit.id)}>Reject</Button>
+                                            <Button size="sm" className="h-8 bg-primary" onClick={() => handleAuthorize(commit.id)}>Authorize Merge</Button>
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         </CardContent>
                     </Card>
-
                 </div>
 
                 {/* 12:00 PM Deployment Status */}
@@ -170,7 +208,13 @@ export default function MainAdminPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {approvedDeployments.map((deploy) => (
+                                {approvedDeployments.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
+                                            No deployments queued. All cleared by emergency halt or no commits approved.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : approvedDeployments.map((deploy) => (
                                     <TableRow key={deploy.id}>
                                         <TableCell className="font-medium font-mono text-muted-foreground">{deploy.id}</TableCell>
                                         <TableCell className="font-semibold">{deploy.commitMsg}</TableCell>

@@ -1,9 +1,19 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
-import { LoginDto, RegisterClinicDto, RegisterCustomerDto } from './dto/auth.dto';
-import { Role, ClinicStatus } from "@prisma/client";
+import {
+  LoginDto,
+  RegisterClinicDto,
+  RegisterCustomerDto,
+  RegisterDoctorDto,
+} from './dto/auth.dto';
+import { Role, ClinicStatus } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -23,13 +33,15 @@ export class AuthService {
   async generateTokens(userId: string, email: string, role: string) {
     const payload = { sub: userId, email, role };
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: this.jwtService.sign(payload, { expiresIn: '7d' }),
       refresh_token: this.jwtService.sign(payload, { expiresIn: '7d' }),
     };
   }
 
   async registerCustomer(dto: RegisterCustomerDto) {
-    const existingUser = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
     if (existingUser) {
       throw new ConflictException('Email already registered');
     }
@@ -46,57 +58,134 @@ export class AuthService {
       },
     });
 
-    return this.generateTokens(user.id, user.email, user.role);
+    return {
+      id: user.id,
+      name: `${user.firstName} ${user.lastName}`,
+      email: user.email,
+    };
   }
 
-  async registerClinic(dto: RegisterClinicDto) {
-    const existingUser = await this.prisma.user.findUnique({ where: { email: dto.email } });
+  async registerDoctor(dto: RegisterDoctorDto) {
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
     if (existingUser) {
       throw new ConflictException('Email already registered');
     }
 
     const passwordHash = await this.hashPassword(dto.password);
-    
-    return this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: {
-          email: dto.email,
-          passwordHash,
-          firstName: dto.firstName,
-          lastName: dto.lastName,
-          phone: dto.phone,
-          role: Role.VET,
-        },
-      });
+    const user = await this.prisma.user.create({
+      data: {
+        email: dto.email,
+        passwordHash,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        phone: dto.phone,
+        licenseNumber: dto.licenseNumber,
+        role: Role.VET,
+      },
+    });
 
+    return {
+      id: user.id,
+      name: `${user.firstName} ${user.lastName}`,
+      email: user.email,
+    };
+  }
+
+  async registerClinic(dto: RegisterClinicDto) {
+    const owner = await this.prisma.user.findUnique({
+      where: { id: dto.ownerId },
+    });
+    if (!owner) {
+      throw new NotFoundException('Doctor not found');
+    }
+    if (owner.role !== Role.VET) {
+      throw new ConflictException('Owner must be a doctor');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
       const clinic = await tx.clinic.create({
         data: {
           name: dto.clinicName,
           address: dto.clinicAddress,
           operatingHours: dto.operatingHours,
           status: ClinicStatus.PENDING,
+          ownerId: owner.id,
         },
       });
 
       await tx.clinicStaff.create({
         data: {
           clinicId: clinic.id,
-          userId: user.id,
+          userId: owner.id,
         },
       });
 
-      return this.generateTokens(user.id, user.email, user.role);
+      return { message: 'Clinic registered successfully', clinic };
     });
   }
 
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    if (!user || !(await this.comparePassword(dto.password, user.passwordHash))) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+    if (
+      !user ||
+      !(await this.comparePassword(dto.password, user.passwordHash))
+    ) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
     if (!user.isActive) {
       throw new UnauthorizedException('Account is inactive');
+    }
+
+    return this.generateTokens(user.id, user.email, user.role);
+  }
+
+  async loginClinic(dto: LoginDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+      include: { ownedClinics: true },
+    });
+
+    if (
+      !user ||
+      !(await this.comparePassword(dto.password, user.passwordHash))
+    ) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is inactive');
+    }
+
+    if (user.role !== Role.VET || user.ownedClinics.length === 0) {
+      throw new UnauthorizedException('User is not a clinic owner');
+    }
+
+    return this.generateTokens(user.id, user.email, user.role);
+  }
+
+  async loginAdmin(dto: LoginDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+
+    if (
+      !user ||
+      !(await this.comparePassword(dto.password, user.passwordHash))
+    ) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('Account is inactive');
+    }
+
+    if (user.role !== Role.MAIN_ADMIN && user.role !== Role.MINOR_ADMIN) {
+      throw new UnauthorizedException('User is not an admin');
     }
 
     return this.generateTokens(user.id, user.email, user.role);
@@ -122,11 +211,24 @@ export class AuthService {
         role: true,
         phone: true,
         isActive: true,
+        staffProfiles: {
+          select: {
+            clinicId: true,
+          },
+        },
       },
     });
     if (!user) {
       throw new UnauthorizedException();
     }
-    return user;
+    const { staffProfiles, ...userData } = user;
+    if (user.role === Role.VET) {
+      const clinicId = staffProfiles?.[0]?.clinicId ?? null;
+      return {
+        ...userData,
+        clinicId,
+      };
+    }
+    return userData;
   }
 }

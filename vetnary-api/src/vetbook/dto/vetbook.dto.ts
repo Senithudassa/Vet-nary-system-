@@ -49,3 +49,45 @@ export class CreateVaccinationDto {
   @IsDateString()
   nextDueDate?: string;
 }
+
+export class CreatePrescriptionDto {
+  @ApiProperty({ example: 'clinic-uuid' })
+  @IsNotEmpty()
+  @IsString()
+  clinicId: string;
+
+  @ApiProperty({ example: 'medical-record-uuid', required: false })
+  @IsOptional()
+  @IsString()
+  medicalRecordId?: string;
+
+  @ApiProperty({ example: 'appointment-uuid', required: false })
+  @IsOptional()
+  @IsString()
+  appointmentId?: string;
+
+  @ApiProperty({ example: 'Amoxicillin' })
+  @IsNotEmpty()
+  @IsString()
+  medicineName: string;
+
+  @ApiProperty({ example: '500mg', required: false })
+  @IsOptional()
+  @IsString()
+  dosage?: string;
+
+  @ApiProperty({ example: 'Twice a day', required: false })
+  @IsOptional()
+  @IsString()
+  frequency?: string;
+
+  @ApiProperty({ example: '7 days', required: false })
+  @IsOptional()
+  @IsString()
+  duration?: string;
+
+  @ApiProperty({ example: 'Take after meals', required: false })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}

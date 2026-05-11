@@ -2,25 +2,34 @@ import { useState, useCallback, useEffect } from 'react';
 import { api } from '@/lib/api';
 
 export interface MedicalRecord {
-  type: 'MEDICAL' | 'VACCINATION';
+  id: string;
+  petId: string;
+  vetId?: string;
+  clinicId: string;
   diagnosis?: string;
+  treatment?: string;
+  prescription?: string;
+  notes?: string;
+  administeredById?: string;
   vaccineName?: string;
-  date: string;
-}
-
-export interface VetBookData {
-  pet: { name: string };
-  records: MedicalRecord[];
+  batchNumber?: string;
+  nextDueDate?: string;
+  recordDate: string;
+  createdAt: string;
+  type: 'MEDICAL' | 'VACCINE';
+  clinic?: any;
+  vet?: any;
+  administeredBy?: any;
 }
 
 export function useVetBook(petId: string | null) {
-  const [data, setData] = useState<VetBookData | null>(null);
+  const [data, setData] = useState<MedicalRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchRecords = useCallback(async () => {
     if (!petId) {
-      setData(null);
+      setData([]);
       return;
     }
 
@@ -28,7 +37,7 @@ export function useVetBook(petId: string | null) {
     setError(null);
     try {
       const result = await api.getVetBook(petId);
-      setData(result);
+      setData(result || []);
     } catch (err: any) {
       console.error("Failed to fetch vet book:", err);
       setError(err.message || 'Failed to fetch medical records');

@@ -1,7 +1,15 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { UpdateClinicStatusDto, UpdateClinicDto, AddStaffDto } from './dto/clinics.dto';
-import { ClinicStatus } from "@prisma/client";
+import {
+  UpdateClinicStatusDto,
+  UpdateClinicDto,
+  AddStaffDto,
+} from './dto/clinics.dto';
+import { ClinicStatus } from '@prisma/client';
 
 @Injectable()
 export class ClinicsService {
@@ -22,18 +30,44 @@ export class ClinicsService {
     });
   }
 
+  async findAllForAdmin() {
+    return this.prisma.clinic.findMany();
+  }
+
   async findOne(id: string) {
     const clinic = await this.prisma.clinic.findUnique({
       where: { id },
       include: {
+        owner: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            phone: true,
+            accountNumber: true,
+            licenseNumber: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
         staff: {
           include: {
             user: {
               select: {
                 id: true,
+                email: true,
                 firstName: true,
                 lastName: true,
                 role: true,
+                phone: true,
+                accountNumber: true,
+                licenseNumber: true,
+                isActive: true,
+                createdAt: true,
+                updatedAt: true,
               },
             },
           },
@@ -43,6 +77,13 @@ export class ClinicsService {
     if (!clinic) {
       throw new NotFoundException('Clinic not found');
     }
+
+    if (clinic.ownerId && clinic.staff?.length) {
+      clinic.staff = clinic.staff.filter(
+        (staff) => staff.userId !== clinic.ownerId,
+      );
+    }
+
     return clinic;
   }
 
@@ -57,7 +98,12 @@ export class ClinicsService {
     });
   }
 
-  async updateClinic(id: string, userId: string, userRole: string, dto: UpdateClinicDto) {
+  async updateClinic(
+    id: string,
+    userId: string,
+    userRole: string,
+    dto: UpdateClinicDto,
+  ) {
     const clinic = await this.prisma.clinic.findUnique({ where: { id } });
     if (!clinic) {
       throw new NotFoundException('Clinic not found');

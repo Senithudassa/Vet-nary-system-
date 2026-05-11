@@ -1,11 +1,29 @@
-import { Controller, Get, Patch, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Patch,
+  Post,
+  Body,
+  Param,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { ClinicsService } from './clinics.service';
-import { UpdateClinicStatusDto, UpdateClinicDto, AddStaffDto } from './dto/clinics.dto';
+import {
+  UpdateClinicStatusDto,
+  UpdateClinicDto,
+  AddStaffDto,
+} from './dto/clinics.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { Role } from "@prisma/client";
+import { Role } from '@prisma/client';
 
 @ApiTags('Clinic Operations')
 @Controller('clinics')
@@ -19,9 +37,22 @@ export class ClinicsController {
     return this.clinicsService.findAll();
   }
 
+  @Get('admin/all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MAIN_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List all clinics (Main Admin only)' })
+  @ApiResponse({ status: 200, description: 'Clinics retrieved successfully' })
+  findAllForAdmin() {
+    return this.clinicsService.findAllForAdmin();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get clinic details (Public)' })
-  @ApiResponse({ status: 200, description: 'Clinic details retrieved successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Clinic details retrieved successfully',
+  })
   findOne(@Param('id') id: string) {
     return this.clinicsService.findOne(id);
   }
@@ -42,8 +73,17 @@ export class ClinicsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update clinic details (Vet or Main Admin only)' })
   @ApiResponse({ status: 200, description: 'Clinic updated successfully' })
-  updateClinic(@Param('id') id: string, @Request() req: any, @Body() dto: UpdateClinicDto) {
-    return this.clinicsService.updateClinic(id, req.user.id, req.user.role, dto);
+  updateClinic(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() dto: UpdateClinicDto,
+  ) {
+    return this.clinicsService.updateClinic(
+      id,
+      req.user.id,
+      req.user.role,
+      dto,
+    );
   }
 
   @Get(':id/staff')

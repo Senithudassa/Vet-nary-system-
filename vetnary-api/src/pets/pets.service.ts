@@ -1,7 +1,11 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePetDto, UpdatePetDto } from './dto/pets.dto';
-import { Role } from "@prisma/client";
+import { Role } from '@prisma/client';
 
 @Injectable()
 export class PetsService {
@@ -10,6 +14,23 @@ export class PetsService {
   async findAll(ownerId: string) {
     return this.prisma.pet.findMany({
       where: { ownerId, isActive: true },
+    });
+  }
+
+  async findAllForVet(userId: string) {
+    return this.prisma.pet.findMany({
+      where: {
+        isActive: true,
+        appointments: {
+          some: {
+            clinic: {
+              staff: {
+                some: { userId },
+              },
+            },
+          },
+        },
+      },
     });
   }
 
@@ -40,7 +61,9 @@ export class PetsService {
         },
       });
       if (!hasAppointment) {
-        throw new ForbiddenException('Not authorized to view this pet (no associated appointment)');
+        throw new ForbiddenException(
+          'Not authorized to view this pet (no associated appointment)',
+        );
       }
     }
 
@@ -77,6 +100,18 @@ export class PetsService {
     return this.prisma.pet.update({
       where: { id },
       data: { isActive: false },
+    });
+  }
+
+  async verify(id: string) {
+    const pet = await this.prisma.pet.findUnique({ where: { id } });
+    if (!pet || !pet.isActive) {
+      throw new NotFoundException('Pet not found');
+    }
+
+    return this.prisma.pet.update({
+      where: { id },
+      data: { isVerified: true },
     });
   }
 }
