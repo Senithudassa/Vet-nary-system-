@@ -30,17 +30,28 @@ import {
 } from "@/components/ui/dialog";
 import { ProtectedRoute } from "@/components/ui/protected-route";
 import { toast } from "sonner";
-import { appointmentService, Appointment } from "@/app/services/appointment.service";
+import {
+  appointmentService,
+  Appointment,
+} from "@/app/services/appointment.service";
 import { vetbookService } from "@/app/services/vetbook.service";
 import { invoiceService } from "@/app/services/invoice.service";
-import { Loader2, ArrowLeft, FileText, Syringe, CheckCircle, Activity, Clock } from "lucide-react";
+import {
+  Loader2,
+  ArrowLeft,
+  FileText,
+  Syringe,
+  CheckCircle,
+  Activity,
+  Clock,
+} from "lucide-react";
 
 const SAMPLE_VACCINES = [
   "Rabies",
   "DHPP (Distemper, Hepatitis, Parainfluenza, Parvovirus)",
   "Bordetella",
   "FVRCP (Feline Viral Rhinotracheitis, Calicivirus, Panleukopenia)",
-  "FeLV (Feline Leukemia Virus)"
+  "FeLV (Feline Leukemia Virus)",
 ];
 
 export default function AppointmentDetailsPage() {
@@ -57,7 +68,6 @@ export default function AppointmentDetailsPage() {
   const [medicalForm, setMedicalForm] = useState({
     diagnosis: "",
     treatment: "",
-    prescription: "",
     notes: "",
   });
   const [medicalLoading, setMedicalLoading] = useState(false);
@@ -69,6 +79,16 @@ export default function AppointmentDetailsPage() {
     nextDueDate: "",
   });
   const [vaccineLoading, setVaccineLoading] = useState(false);
+
+  // Prescription Form
+  const [prescriptionForm, setPrescriptionForm] = useState({
+    medicineName: "",
+    dosage: "",
+    frequency: "",
+    duration: "",
+    notes: "",
+  });
+  const [prescriptionLoading, setPrescriptionLoading] = useState(false);
 
   // Complete Appointment & Invoice Form
   const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
@@ -130,7 +150,11 @@ export default function AppointmentDetailsPage() {
         ...medicalForm,
       });
       toast.success("Medical record added successfully");
-      setMedicalForm({ diagnosis: "", treatment: "", prescription: "", notes: "" });
+      setMedicalForm({
+        diagnosis: "",
+        treatment: "",
+        notes: "",
+      });
       fetchDetails(); // refresh timeline
     } catch (err: any) {
       toast.error(err.message || "Failed to add medical record");
@@ -151,7 +175,9 @@ export default function AppointmentDetailsPage() {
         clinicId,
         vaccineName: vaccineForm.vaccineName,
         batchNumber: vaccineForm.batchNumber,
-        nextDueDate: vaccineForm.nextDueDate ? new Date(vaccineForm.nextDueDate).toISOString() : undefined,
+        nextDueDate: vaccineForm.nextDueDate
+          ? new Date(vaccineForm.nextDueDate).toISOString()
+          : undefined,
       });
       toast.success("Vaccination added successfully");
       setVaccineForm({ vaccineName: "", batchNumber: "", nextDueDate: "" });
@@ -160,6 +186,40 @@ export default function AppointmentDetailsPage() {
       toast.error(err.message || "Failed to add vaccination");
     } finally {
       setVaccineLoading(false);
+    }
+  };
+
+  const handleAddPrescription = async () => {
+    if (!appointment?.petId || !clinicId) return;
+    if (!prescriptionForm.medicineName) {
+      toast.error("Medicine name is required");
+      return;
+    }
+    setPrescriptionLoading(true);
+    try {
+      await vetbookService.addPrescription(appointment.petId, {
+        clinicId,
+        appointmentId: appointment.id,
+
+        medicineName: prescriptionForm.medicineName,
+        dosage: prescriptionForm.dosage || undefined,
+        frequency: prescriptionForm.frequency || undefined,
+        duration: prescriptionForm.duration || undefined,
+        notes: prescriptionForm.notes || undefined,
+      });
+      toast.success("Prescription added successfully");
+      setPrescriptionForm({
+        medicineName: "",
+        dosage: "",
+        frequency: "",
+        duration: "",
+        notes: "",
+      });
+      fetchDetails(); // refresh timeline
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add prescription");
+    } finally {
+      setPrescriptionLoading(false);
     }
   };
 
@@ -178,10 +238,13 @@ export default function AppointmentDetailsPage() {
         appointmentId: appointment.id,
         amount: Number(invoiceForm.amount),
       });
-      
+
       // 2. Update Status to COMPLETED
-      await appointmentService.updateAppointmentStatus(appointment.id, "COMPLETED");
-      
+      await appointmentService.updateAppointmentStatus(
+        appointment.id,
+        "COMPLETED",
+      );
+
       toast.success("Invoice created and appointment completed");
       setAppointment({ ...appointment, status: "COMPLETED" });
       setIsCompleteDialogOpen(false);
@@ -203,7 +266,8 @@ export default function AppointmentDetailsPage() {
 
   if (!appointment) return null;
 
-  const isEditable = appointment.status === "PENDING" || appointment.status === "CONFIRMED";
+  const isEditable =
+    appointment.status === "PENDING" || appointment.status === "CONFIRMED";
 
   return (
     <ProtectedRoute allowedRoles={["vet"]}>
@@ -214,7 +278,9 @@ export default function AppointmentDetailsPage() {
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Appointment Details</h1>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Appointment Details
+            </h1>
             <p className="text-muted-foreground mt-1">
               Manage medical records, vaccinations, and billing for this visit.
             </p>
@@ -225,8 +291,8 @@ export default function AppointmentDetailsPage() {
                 <CheckCircle className="mr-2 h-4 w-4" /> Completed
               </Button>
             ) : (
-              <Button 
-                variant="default" 
+              <Button
+                variant="default"
                 onClick={() => setIsCompleteDialogOpen(true)}
                 disabled={!isEditable}
               >
@@ -243,8 +309,14 @@ export default function AppointmentDetailsPage() {
               <CardTitle>Patient Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <div><span className="font-semibold">Pet Name:</span> {appointment.pet?.name || "Unknown"}</div>
-              <div><span className="font-semibold">Species:</span> {appointment.pet?.species || "Unknown"}</div>
+              <div>
+                <span className="font-semibold">Pet Name:</span>{" "}
+                {appointment.pet?.name || "Unknown"}
+              </div>
+              <div>
+                <span className="font-semibold">Species:</span>{" "}
+                {appointment.pet?.species || "Unknown"}
+              </div>
               <div>
                 <span className="font-semibold">Owner:</span>{" "}
                 {appointment.owner?.firstName} {appointment.owner?.lastName}
@@ -253,8 +325,14 @@ export default function AppointmentDetailsPage() {
                 <span className="font-semibold">Date & Time:</span>{" "}
                 {new Date(appointment.date).toLocaleString()}
               </div>
-              <div><span className="font-semibold">Reason:</span> {appointment.reason || "None provided"}</div>
-              <div><span className="font-semibold">Status:</span> {appointment.status}</div>
+              <div>
+                <span className="font-semibold">Reason:</span>{" "}
+                {appointment.reason || "None provided"}
+              </div>
+              <div>
+                <span className="font-semibold">Status:</span>{" "}
+                {appointment.status}
+              </div>
             </CardContent>
           </Card>
 
@@ -264,19 +342,30 @@ export default function AppointmentDetailsPage() {
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" /> Pet History
               </CardTitle>
-              <CardDescription>Past medical and vaccination records.</CardDescription>
+              <CardDescription>
+                Past medical, vaccination, and prescription records.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {timeline.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No past history found.</p>
+                <p className="text-sm text-muted-foreground">
+                  No past history found.
+                </p>
               ) : (
                 <div className="space-y-6">
                   {timeline.map((item) => (
-                    <div key={item.id} className="relative pl-6 border-l-2 border-muted pb-4 last:pb-0">
+                    <div
+                      key={item.id}
+                      className="relative pl-6 border-l-2 border-muted pb-4 last:pb-0"
+                    >
                       <div className="absolute w-3 h-3 bg-primary rounded-full -left-[7px] top-1.5" />
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold">
-                          {item.type === "MEDICAL" ? "Medical Record" : "Vaccination"}
+                          {item.type === "MEDICAL"
+                            ? "Medical Record"
+                            : item.type === "VACCINE"
+                              ? "Vaccination"
+                              : "Prescription"}
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {new Date(item.recordDate).toLocaleDateString()}
@@ -285,14 +374,84 @@ export default function AppointmentDetailsPage() {
                       <div className="mt-1 text-sm text-muted-foreground">
                         {item.type === "MEDICAL" ? (
                           <>
-                            <p><span className="font-medium text-foreground">Diagnosis:</span> {item.diagnosis}</p>
-                            {item.treatment && <p><span className="font-medium text-foreground">Treatment:</span> {item.treatment}</p>}
-                            {item.prescription && <p><span className="font-medium text-foreground">Prescription:</span> {item.prescription}</p>}
+                            <p>
+                              <span className="font-medium text-foreground">
+                                Diagnosis:
+                              </span>{" "}
+                              {item.diagnosis}
+                            </p>
+                            {item.treatment && (
+                              <p>
+                                <span className="font-medium text-foreground">
+                                  Treatment:
+                                </span>{" "}
+                                {item.treatment}
+                              </p>
+                            )}
+                            {item.prescription && (
+                              <p>
+                                <span className="font-medium text-foreground">
+                                  Prescription:
+                                </span>{" "}
+                                {item.prescription}
+                              </p>
+                            )}
+                          </>
+                        ) : item.type === "VACCINE" ? (
+                          <>
+                            <p>
+                              <span className="font-medium text-foreground">
+                                Vaccine:
+                              </span>{" "}
+                              {item.vaccineName}
+                            </p>
+                            <p>
+                              <span className="font-medium text-foreground">
+                                Batch:
+                              </span>{" "}
+                              {item.batchNumber}
+                            </p>
                           </>
                         ) : (
                           <>
-                            <p><span className="font-medium text-foreground">Vaccine:</span> {item.vaccineName}</p>
-                            <p><span className="font-medium text-foreground">Batch:</span> {item.batchNumber}</p>
+                            <p>
+                              <span className="font-medium text-foreground">
+                                Medicine:
+                              </span>{" "}
+                              {item.medicineName}
+                            </p>
+                            {item.dosage && (
+                              <p>
+                                <span className="font-medium text-foreground">
+                                  Dosage:
+                                </span>{" "}
+                                {item.dosage}
+                              </p>
+                            )}
+                            {item.frequency && (
+                              <p>
+                                <span className="font-medium text-foreground">
+                                  Frequency:
+                                </span>{" "}
+                                {item.frequency}
+                              </p>
+                            )}
+                            {item.duration && (
+                              <p>
+                                <span className="font-medium text-foreground">
+                                  Duration:
+                                </span>{" "}
+                                {item.duration}
+                              </p>
+                            )}
+                            {item.notes && (
+                              <p>
+                                <span className="font-medium text-foreground">
+                                  Notes:
+                                </span>{" "}
+                                {item.notes}
+                              </p>
+                            )}
                           </>
                         )}
                       </div>
@@ -310,14 +469,21 @@ export default function AppointmentDetailsPage() {
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5" /> Add Medical Record
                 </CardTitle>
-                <CardDescription>Record the diagnosis and treatment plan.</CardDescription>
+                <CardDescription>
+                  Record the diagnosis and treatment plan.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>Diagnosis *</Label>
                   <Input
                     value={medicalForm.diagnosis}
-                    onChange={(e) => setMedicalForm({ ...medicalForm, diagnosis: e.target.value })}
+                    onChange={(e) =>
+                      setMedicalForm({
+                        ...medicalForm,
+                        diagnosis: e.target.value,
+                      })
+                    }
                     placeholder="e.g. Gastroenteritis"
                   />
                 </div>
@@ -325,29 +491,127 @@ export default function AppointmentDetailsPage() {
                   <Label>Treatment</Label>
                   <Textarea
                     value={medicalForm.treatment}
-                    onChange={(e) => setMedicalForm({ ...medicalForm, treatment: e.target.value })}
+                    onChange={(e) =>
+                      setMedicalForm({
+                        ...medicalForm,
+                        treatment: e.target.value,
+                      })
+                    }
                     placeholder="e.g. Dietary restriction"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Prescription</Label>
-                  <Textarea
-                    value={medicalForm.prescription}
-                    onChange={(e) => setMedicalForm({ ...medicalForm, prescription: e.target.value })}
-                    placeholder="e.g. Probiotics twice daily"
-                  />
-                </div>
+
                 <div className="space-y-2">
                   <Label>Notes</Label>
                   <Textarea
                     value={medicalForm.notes}
-                    onChange={(e) => setMedicalForm({ ...medicalForm, notes: e.target.value })}
+                    onChange={(e) =>
+                      setMedicalForm({ ...medicalForm, notes: e.target.value })
+                    }
                     placeholder="Any additional observations"
                   />
                 </div>
-                <Button onClick={handleAddMedicalRecord} disabled={medicalLoading} className="w-full">
-                  {medicalLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button
+                  onClick={handleAddMedicalRecord}
+                  disabled={medicalLoading}
+                  className="w-full"
+                >
+                  {medicalLoading && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
                   Save Medical Record
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Add Prescription */}
+          {isEditable && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" /> Add Prescription
+                </CardTitle>
+                <CardDescription>
+                  Issue medication instructions for this visit.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Medicine Name *</Label>
+                  <Input
+                    value={prescriptionForm.medicineName}
+                    onChange={(e) =>
+                      setPrescriptionForm({
+                        ...prescriptionForm,
+                        medicineName: e.target.value,
+                      })
+                    }
+                    placeholder="e.g. Amoxicillin"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Dosage</Label>
+                  <Input
+                    value={prescriptionForm.dosage}
+                    onChange={(e) =>
+                      setPrescriptionForm({
+                        ...prescriptionForm,
+                        dosage: e.target.value,
+                      })
+                    }
+                    placeholder="e.g. 500mg"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Frequency</Label>
+                  <Input
+                    value={prescriptionForm.frequency}
+                    onChange={(e) =>
+                      setPrescriptionForm({
+                        ...prescriptionForm,
+                        frequency: e.target.value,
+                      })
+                    }
+                    placeholder="e.g. Twice a day"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Duration</Label>
+                  <Input
+                    value={prescriptionForm.duration}
+                    onChange={(e) =>
+                      setPrescriptionForm({
+                        ...prescriptionForm,
+                        duration: e.target.value,
+                      })
+                    }
+                    placeholder="e.g. 7 days"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Textarea
+                    value={prescriptionForm.notes}
+                    onChange={(e) =>
+                      setPrescriptionForm({
+                        ...prescriptionForm,
+                        notes: e.target.value,
+                      })
+                    }
+                    placeholder="Additional instructions"
+                  />
+                </div>
+                <Button
+                  onClick={handleAddPrescription}
+                  disabled={prescriptionLoading}
+                  className="w-full"
+                >
+                  {prescriptionLoading && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Add Prescription
                 </Button>
               </CardContent>
             </Card>
@@ -367,7 +631,9 @@ export default function AppointmentDetailsPage() {
                   <Label>Vaccine Name *</Label>
                   <Select
                     value={vaccineForm.vaccineName}
-                    onValueChange={(v) => setVaccineForm({ ...vaccineForm, vaccineName: v })}
+                    onValueChange={(v) =>
+                      setVaccineForm({ ...vaccineForm, vaccineName: v })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select a vaccine" />
@@ -385,7 +651,12 @@ export default function AppointmentDetailsPage() {
                   <Label>Batch Number *</Label>
                   <Input
                     value={vaccineForm.batchNumber}
-                    onChange={(e) => setVaccineForm({ ...vaccineForm, batchNumber: e.target.value })}
+                    onChange={(e) =>
+                      setVaccineForm({
+                        ...vaccineForm,
+                        batchNumber: e.target.value,
+                      })
+                    }
                     placeholder="e.g. LOT-12345"
                   />
                 </div>
@@ -394,27 +665,41 @@ export default function AppointmentDetailsPage() {
                   <Input
                     type="date"
                     value={vaccineForm.nextDueDate}
-                    onChange={(e) => setVaccineForm({ ...vaccineForm, nextDueDate: e.target.value })}
+                    onChange={(e) =>
+                      setVaccineForm({
+                        ...vaccineForm,
+                        nextDueDate: e.target.value,
+                      })
+                    }
                   />
                 </div>
-                <Button onClick={handleAddVaccination} disabled={vaccineLoading} className="w-full">
-                  {vaccineLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button
+                  onClick={handleAddVaccination}
+                  disabled={vaccineLoading}
+                  className="w-full"
+                >
+                  {vaccineLoading && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
                   Add Vaccination
                 </Button>
               </CardContent>
             </Card>
           )}
-
         </div>
       </div>
 
       {/* Complete & Invoice Dialog */}
-      <Dialog open={isCompleteDialogOpen} onOpenChange={setIsCompleteDialogOpen}>
+      <Dialog
+        open={isCompleteDialogOpen}
+        onOpenChange={setIsCompleteDialogOpen}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Complete Appointment & Generate Invoice</DialogTitle>
             <DialogDescription>
-              Provide the total billed amount for this visit before completing the appointment.
+              Provide the total billed amount for this visit before completing
+              the appointment.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
@@ -425,17 +710,27 @@ export default function AppointmentDetailsPage() {
                 min="0"
                 step="0.01"
                 value={invoiceForm.amount}
-                onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })}
+                onChange={(e) =>
+                  setInvoiceForm({ ...invoiceForm, amount: e.target.value })
+                }
                 placeholder="e.g. 75.00"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCompleteDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsCompleteDialogOpen(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={handleCompleteAndInvoice} disabled={completeLoading}>
-              {completeLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button
+              onClick={handleCompleteAndInvoice}
+              disabled={completeLoading}
+            >
+              {completeLoading && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
               Complete & Bill
             </Button>
           </DialogFooter>

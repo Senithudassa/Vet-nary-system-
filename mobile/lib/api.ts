@@ -379,6 +379,20 @@ class ApiClient {
     return response.json();
   }
 
+  // Prescriptions
+  async getPetPrescriptions(petId: string): Promise<Prescription[]> {
+    const response = await fetch(`${BASE_URL}/vetbook/${petId}/prescriptions`, {
+      method: "GET",
+      headers: await this.getHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch prescriptions");
+    }
+
+    return response.json();
+  }
+
   // Get all clinics with staff (to extract vets)
   async getClinicStaff(clinicId: string): Promise<Vet[]> {
     const response = await fetch(`${BASE_URL}/clinics/${clinicId}/staff`, {
@@ -455,6 +469,25 @@ export interface Clinic {
   address: string;
   phone: string;
   operatingHours: string;
+}
+
+export interface Prescription {
+  id: string;
+  petId: string;
+  vetId: string;
+  clinicId: string;
+  medicalRecordId?: string | null;
+  appointmentId?: string | null;
+  medicineName: string;
+  dosage?: string | null;
+  frequency?: string | null;
+  duration?: string | null;
+  notes?: string | null;
+  issuedAt: string;
+  updatedAt: string;
+  clinic?: { id: string; name: string };
+  vet?: { firstName: string; lastName: string };
+  pet?: { name: string; species?: string };
 }
 
 export interface Invoice {

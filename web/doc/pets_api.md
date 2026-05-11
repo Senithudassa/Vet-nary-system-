@@ -36,6 +36,7 @@ All endpoints require **Bearer JWT** authentication.
     "weight": 15.5,
     "microchip": "900123456789",
     "isActive": true,
+    "isVerified": false,
     "createdAt": "2024-03-01T09:00:00.000Z",
     "updatedAt": "2024-03-01T09:00:00.000Z"
   }
@@ -65,6 +66,7 @@ All endpoints require **Bearer JWT** authentication.
     "weight": 15.5,
     "microchip": "900123456789",
     "isActive": true,
+    "isVerified": false,
     "createdAt": "2024-03-01T09:00:00.000Z",
     "updatedAt": "2024-03-01T09:00:00.000Z"
   }
@@ -104,6 +106,7 @@ All endpoints require **Bearer JWT** authentication.
   "weight": 15.5,
   "microchip": "900123456789",
   "isActive": true,
+  "isVerified": false,
   "createdAt": "2024-03-01T09:00:00.000Z",
   "updatedAt": "2024-03-01T09:00:00.000Z"
 }
@@ -136,6 +139,7 @@ All endpoints require **Bearer JWT** authentication.
   "weight": 15.5,
   "microchip": "900123456789",
   "isActive": true,
+  "isVerified": false,
   "createdAt": "2024-03-01T09:00:00.000Z",
   "updatedAt": "2024-03-01T09:00:00.000Z",
   "owner": {
@@ -191,6 +195,7 @@ All endpoints require **Bearer JWT** authentication.
   "weight": 16.2,
   "microchip": "900123456789",
   "isActive": true,
+  "isVerified": false,
   "createdAt": "2024-03-01T09:00:00.000Z",
   "updatedAt": "2024-03-02T09:00:00.000Z"
 }
@@ -221,6 +226,7 @@ All endpoints require **Bearer JWT** authentication.
   "weight": 15.5,
   "microchip": "900123456789",
   "isActive": false,
+  "isVerified": false,
   "createdAt": "2024-03-01T09:00:00.000Z",
   "updatedAt": "2024-03-03T09:00:00.000Z"
 }
@@ -228,6 +234,38 @@ All endpoints require **Bearer JWT** authentication.
 
 **Errors**
 - `403 Forbidden` — Not authorized to delete this pet
+
+---
+
+### 7) Verify Pet
+**PATCH** `/pets/:id/verify`
+
+**Roles:** `VET`, `MAIN_ADMIN`, `MINOR_ADMIN`  
+**Description:** Marks a pet as verified.
+
+**Path Params**
+- `id` (string, required) — Pet ID (UUID)
+
+**Response: 200**
+```json
+{
+  "id": "pet-uuid",
+  "ownerId": "owner-uuid",
+  "name": "Buddy",
+  "species": "Dog",
+  "breed": "Golden Retriever",
+  "weight": 15.5,
+  "microchip": "900123456789",
+  "isActive": true,
+  "isVerified": true,
+  "createdAt": "2024-03-01T09:00:00.000Z",
+  "updatedAt": "2024-03-04T09:00:00.000Z"
+}
+```
+
+**Errors**
+- `404 Not Found` — Pet not found
+- `403 Forbidden` — Vet or Admin role required
 
 ---
 
@@ -244,6 +282,7 @@ All endpoints require **Bearer JWT** authentication.
   "weight": "number | null",
   "microchip": "string | null",
   "isActive": "boolean",
+  "isVerified": "boolean",
   "createdAt": "string (date-time)",
   "updatedAt": "string (date-time)"
 }

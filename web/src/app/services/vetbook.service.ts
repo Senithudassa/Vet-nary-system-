@@ -25,6 +25,22 @@ export interface Vaccination {
   createdAt: string;
 }
 
+export interface Prescription {
+  id: string;
+  petId: string;
+  vetId: string;
+  clinicId: string;
+  medicalRecordId?: string | null;
+  appointmentId?: string | null;
+  medicineName: string;
+  dosage?: string | null;
+  frequency?: string | null;
+  duration?: string | null;
+  notes?: string | null;
+  issuedAt: string;
+  updatedAt: string;
+}
+
 export interface CreateMedicalRecordRequest {
   clinicId: string;
   diagnosis: string;
@@ -38,6 +54,17 @@ export interface CreateVaccinationRequest {
   vaccineName: string;
   batchNumber: string;
   nextDueDate?: string;
+}
+
+export interface CreatePrescriptionRequest {
+  clinicId: string;
+  medicalRecordId?: string;
+  appointmentId?: string;
+  medicineName: string;
+  dosage?: string;
+  frequency?: string;
+  duration?: string;
+  notes?: string;
 }
 
 class VetbookService {
@@ -54,6 +81,13 @@ class VetbookService {
 
   async addVaccination(petId: string, data: CreateVaccinationRequest) {
     return apiFetch<Vaccination>(`/vetbook/${petId}/vaccine`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async addPrescription(petId: string, data: CreatePrescriptionRequest) {
+    return apiFetch<Prescription>(`/vetbook/${petId}/prescription`, {
       method: "POST",
       body: JSON.stringify(data),
     });

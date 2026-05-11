@@ -258,6 +258,99 @@ This document describes all clinic-related endpoints, authentication/authorizati
 ```
 
 **Response 200**
+
+---
+
+### 5) Update clinic details (Vet or Main Admin only)
+**PATCH** `/clinics/:id`
+
+**Auth:** Bearer JWT
+**Roles:** `VET`, `MAIN_ADMIN`
+
+**Path Params**
+- `id` (string) — Clinic ID
+
+**Request Body**
+```json
+{
+  "name": "New Name",
+  "address": "123 Pet St",
+  "latitude": 40.7128,
+  "longitude": -74.006,
+  "phone": "0123456789",
+  "operatingHours": "09:00 - 18:00"
+}
+```
+
+**Response 200**
+```json
+{
+  "id": "string",
+  "name": "New Name",
+  "address": "123 Pet St",
+  "latitude": 40.7128,
+  "longitude": -74.006,
+  "phone": "0123456789",
+  "operatingHours": "09:00 - 18:00",
+  "status": "PENDING | APPROVED | REJECTED",
+  "ownerId": "string | null",
+  "createdAt": "string (ISO datetime)",
+  "updatedAt": "string (ISO datetime)"
+}
+```
+
+---
+
+### 6) List clinic staff (Vet only)
+**GET** `/clinics/:id/staff`
+
+**Auth:** Bearer JWT
+**Roles:** `VET`
+
+**Path Params**
+- `id` (string) — Clinic ID
+
+**Response 200**
+```json
+[
+  {
+    "id": "string",
+    "email": "string",
+    "firstName": "string",
+    "lastName": "string",
+    "role": "MAIN_ADMIN | MINOR_ADMIN | VET | CUSTOMER",
+    "phone": "string | null"
+  }
+]
+```
+
+---
+
+### 7) Add staff to clinic (Vet only)
+**POST** `/clinics/:id/staff`
+
+**Auth:** Bearer JWT
+**Roles:** `VET`
+
+**Path Params**
+- `id` (string) — Clinic ID
+
+**Request Body**
+```json
+{
+  "userId": "user-uuid"
+}
+```
+
+**Response 201**
+```json
+{
+  "id": "string",
+  "clinicId": "string",
+  "userId": "user-uuid",
+  "createdAt": "string (ISO datetime)"
+}
+```
 ```json
 {
   "id": "string",

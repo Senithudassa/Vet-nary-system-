@@ -3,15 +3,18 @@
 This document describes VetBook (medical records & vaccinations) endpoints, request bodies, and response structures.
 
 ## Authentication
+
 All endpoints require **Bearer JWT** authentication.
 
 ## Roles
+
 - **CUSTOMER**
 - **VET**
 
 ---
 
 ## Base URL
+
 `/`
 
 ---
@@ -19,18 +22,21 @@ All endpoints require **Bearer JWT** authentication.
 ## Endpoints
 
 ### 1) Get Pet Medical Timeline
+
 **GET** `/vetbook/:petId`
 
 **Roles:** `CUSTOMER`, `VET`  
-**Description:** Returns a merged, sorted timeline of medical records and vaccinations for a pet.
+**Description:** Returns a merged, sorted timeline of medical records, vaccinations, and prescriptions for a pet.
 
 **Path Params**
+
 - `petId` (string, required) — Pet ID (UUID)
 
 **Response: 200**
 Returns an array of timeline items (sorted by `recordDate` desc). Each item includes a `type` field.
 
 **Response Body**
+
 ```/dev/null/vetbook_api.md#L1-59
 [
   {
@@ -91,26 +97,55 @@ Returns an array of timeline items (sorted by `recordDate` desc). Each item incl
       "lastName": "Doe"
     },
     "type": "VACCINE"
+  },
+  {
+    "id": "prescription-uuid",
+    "petId": "pet-uuid",
+    "vetId": "vet-user-uuid",
+    "clinicId": "clinic-uuid",
+    "medicalRecordId": null,
+    "appointmentId": "appointment-uuid",
+    "medicineName": "Amoxicillin",
+    "dosage": "500mg",
+    "frequency": "Twice a day",
+    "duration": "7 days",
+    "notes": "Take after meals",
+    "issuedAt": "2024-04-10T10:30:00.000Z",
+    "updatedAt": "2024-04-10T10:30:00.000Z",
+    "clinic": {
+      "id": "clinic-uuid",
+      "name": "Happy Paws Clinic"
+    },
+    "vet": {
+      "firstName": "Jane",
+      "lastName": "Doe"
+    },
+    "type": "PRESCRIPTION",
+    "recordDate": "2024-04-10T10:30:00.000Z"
   }
 ]
 ```
 
 **Errors**
+
 - `404 Not Found` — Pet not found
 - `403 Forbidden` — Not authorized to view this pet history
 
 ---
 
 ### 2) Add Medical Record (Vet Only)
+
 **POST** `/vetbook/:petId/medical`
 
 **Roles:** `VET`  
 **Description:** Creates a medical record for a pet.
 
 **Path Params**
+
 - `petId` (string, required)
 
 **Request Body**
+
 ```/dev/null/vetbook_api.md#L61-74
 {
   "clinicId": "clinic-uuid",
@@ -122,6 +157,7 @@ Returns an array of timeline items (sorted by `recordDate` desc). Each item incl
 ```
 
 **Response: 201**
+
 ```/dev/null/vetbook_api.md#L76-92
 {
   "id": "medical-record-uuid",
@@ -138,20 +174,24 @@ Returns an array of timeline items (sorted by `recordDate` desc). Each item incl
 ```
 
 **Errors**
+
 - `403 Forbidden` — Vet role required
 
 ---
 
 ### 3) Add Vaccination Record (Vet Only)
+
 **POST** `/vetbook/:petId/vaccine`
 
 **Roles:** `VET`  
 **Description:** Creates a vaccination record for a pet.
 
 **Path Params**
+
 - `petId` (string, required)
 
 **Request Body**
+
 ```/dev/null/vetbook_api.md#L94-106
 {
   "clinicId": "clinic-uuid",
@@ -162,6 +202,7 @@ Returns an array of timeline items (sorted by `recordDate` desc). Each item incl
 ```
 
 **Response: 201**
+
 ```/dev/null/vetbook_api.md#L108-123
 {
   "id": "vaccination-uuid",
@@ -177,20 +218,24 @@ Returns an array of timeline items (sorted by `recordDate` desc). Each item incl
 ```
 
 **Errors**
+
 - `403 Forbidden` — Vet role required
 
 ---
 
 ### 4) Get Clinic Records (Vet Only)
+
 **GET** `/clinics/:clinicId/records`
 
 **Roles:** `VET`  
-**Description:** Returns all medical records and vaccination records for a clinic.
+**Description:** Returns all medical records, vaccination records, and prescriptions for a clinic.
 
 **Path Params**
+
 - `clinicId` (string, required)
 
 **Response: 200**
+
 ```/dev/null/vetbook_api.md#L125-169
 {
   "medicalRecords": [
@@ -251,18 +296,108 @@ Returns an array of timeline items (sorted by `recordDate` desc). Each item incl
         "lastName": "Doe"
       }
     }
+  ],
+  "prescriptions": [
+    {
+      "id": "prescription-uuid",
+      "petId": "pet-uuid",
+      "vetId": "vet-user-uuid",
+      "clinicId": "clinic-uuid",
+      "medicineName": "Amoxicillin",
+      "pet": { "name": "Buddy" },
+      "vet": { "firstName": "Jane", "lastName": "Doe" }
+    }
   ]
 }
 ```
 
 **Errors**
+
 - `403 Forbidden` — Not authorized to view records for this clinic
+
+---
+
+### 5) Add Prescription (Vet Only)
+
+**POST** `/vetbook/:petId/prescription`
+
+**Roles:** `VET`  
+**Description:** Creates a prescription for a pet.
+
+**Path Params**
+
+- `petId` (string, required)
+
+**Request Body**
+
+```json
+{
+  "clinicId": "clinic-uuid",
+  "medicalRecordId": "medical-record-uuid (optional)",
+  "appointmentId": "appointment-uuid (optional)",
+  "medicineName": "Amoxicillin",
+  "dosage": "500mg",
+  "frequency": "Twice a day",
+  "duration": "7 days",
+  "notes": "Take after meals"
+}
+```
+
+**Response: 201**
+Returns the created prescription object.
+
+---
+
+### 6) Delete Prescription (Vet Only)
+
+**DELETE** `/vetbook/prescription/:id`
+
+**Roles:** `VET`  
+**Description:** Deletes a prescription record.
+
+**Path Params**
+
+- `id` (string, required) — Prescription ID
+
+**Response: 200**
+
+```json
+{ "id": "prescription-uuid" }
+```
+
+---
+
+### 7) Get Pet Prescriptions
+
+**GET** `/vetbook/:petId/prescriptions`
+
+**Roles:** `CUSTOMER`, `VET`  
+**Description:** Lists all prescriptions for a specific pet.
+
+---
+
+### 8) Get Clinic Prescriptions
+
+**GET** `/clinics/:clinicId/prescriptions`
+
+**Roles:** `VET`, `MAIN_ADMIN`  
+**Description:** Lists all prescriptions issued at a specific clinic.
+
+---
+
+### 9) Get Appointment Prescriptions
+
+**GET** `/appointments/:appointmentId/prescriptions`
+
+**Roles:** `CUSTOMER`, `VET`  
+**Description:** Lists all prescriptions linked to a specific appointment.
 
 ---
 
 ## Schemas
 
 ### MedicalRecord
+
 ```/dev/null/vetbook_api.md#L171-187
 {
   "id": "string",
@@ -279,6 +414,7 @@ Returns an array of timeline items (sorted by `recordDate` desc). Each item incl
 ```
 
 ### Vaccination
+
 ```/dev/null/vetbook_api.md#L189-204
 {
   "id": "string",
@@ -293,7 +429,28 @@ Returns an array of timeline items (sorted by `recordDate` desc). Each item incl
 }
 ```
 
+### Prescription
+
+```json
+{
+  "id": "string",
+  "petId": "string",
+  "vetId": "string",
+  "clinicId": "string",
+  "medicalRecordId": "string | null",
+  "appointmentId": "string | null",
+  "medicineName": "string",
+  "dosage": "string | null",
+  "frequency": "string | null",
+  "duration": "string | null",
+  "notes": "string | null",
+  "issuedAt": "string (date-time)",
+  "updatedAt": "string (date-time)"
+}
+```
+
 ### Clinic (partial)
+
 ```/dev/null/vetbook_api.md#L206-224
 {
   "id": "string",
@@ -311,6 +468,7 @@ Returns an array of timeline items (sorted by `recordDate` desc). Each item incl
 ```
 
 ### User (partial, vet)
+
 ```/dev/null/vetbook_api.md#L226-231
 {
   "firstName": "string",
@@ -319,6 +477,7 @@ Returns an array of timeline items (sorted by `recordDate` desc). Each item incl
 ```
 
 ### Pet (partial)
+
 ```/dev/null/vetbook_api.md#L233-246
 {
   "id": "string",
