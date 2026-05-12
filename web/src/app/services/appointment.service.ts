@@ -17,7 +17,7 @@ export function getToken(): string {
 
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -91,9 +91,19 @@ export interface Pet {
   name: string;
   species: string;
   breed?: string;
+  weight?: number;
+  microchip?: string;
   isActive: boolean;
+  isVerified?: boolean;
   ownerId: string;
-  owner?: { firstName: string; lastName: string; email?: string };
+  createdAt?: string;
+  updatedAt?: string;
+  owner?: {
+    firstName: string;
+    lastName: string;
+    email?: string;
+    phone?: string;
+  };
 }
 
 // ─── Appointment Service ───────────────────────────────────────────────────────
@@ -122,7 +132,7 @@ class AppointmentService {
   /** PATCH /appointments/:id/status — Update appointment status */
   async updateAppointmentStatus(
     id: string,
-    status: AppointmentStatus
+    status: AppointmentStatus,
   ): Promise<Appointment> {
     return apiFetch<Appointment>(`/appointments/${id}/status`, {
       method: "PATCH",
@@ -141,11 +151,14 @@ class AppointmentService {
   async addToQueue(
     clinicId: string,
     petId: string,
-    appointmentId?: string
+    appointmentId?: string,
   ): Promise<QueueEntry> {
     return apiFetch<QueueEntry>(`/clinics/${clinicId}/queue`, {
       method: "POST",
-      body: JSON.stringify({ petId, ...(appointmentId ? { appointmentId } : {}) }),
+      body: JSON.stringify({
+        petId,
+        ...(appointmentId ? { appointmentId } : {}),
+      }),
     });
   }
 
@@ -156,12 +169,29 @@ class AppointmentService {
     const res = await fetch(`${BASE_URL}/clinics`);
     const json = await res.json();
     if (!res.ok) throw new Error(json?.message ?? "Failed to fetch clinics.");
-    return Array.isArray(json) ? json : json.data ?? [];
+    return Array.isArray(json) ? json : (json.data ?? []);
   }
 
   /** GET /pets — List my pets (Customer) */
   async getMyPets(): Promise<Pet[]> {
     return apiFetch<Pet[]>("/pets");
+  }
+
+  /** GET /pets/vet — List pets for vet */
+  async getPetsForVet(): Promise<Pet[]> {
+    return apiFetch<Pet[]>("/pets/vet");
+  }
+
+  /** GET /pets/:id — Get pet details */
+  async getPetDetails(id: string): Promise<Pet> {
+    return apiFetch<Pet>(`/pets/${id}`);
+  }
+
+  /** PATCH /pets/:id/verify — Verify pet */
+  async verifyPet(id: string): Promise<Pet> {
+    return apiFetch<Pet>(`/pets/${id}/verify`, {
+      method: "PATCH",
+    });
   }
 
   /** GET /auth/me — Get current user profile */

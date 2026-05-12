@@ -4,7 +4,6 @@ Base URL: `/`
 Authentication: **Bearer JWT required** for all endpoints in this document.
 
 Roles:
-
 - `MAIN_ADMIN`
 
 ---
@@ -12,7 +11,6 @@ Roles:
 ## Common Enums
 
 ### Role
-
 - `MAIN_ADMIN`
 - `MINOR_ADMIN`
 - `VET`
@@ -23,7 +21,6 @@ Roles:
 ## Common Response Structures
 
 ### User (base)
-
 Fields returned by list and update endpoints.
 
 ```json
@@ -78,8 +75,7 @@ Fields returned by list and update endpoints.
   }
 ]
 ```
-
-_(Note: Depending on the implementation, the response may be wrapped in a paginated object structure like `{ data: [...], total, page, limit }`)_
+*(Note: Depending on the implementation, the response may be wrapped in a paginated object structure like `{ data: [...], total, page, limit }`)*
 
 ---
 
@@ -90,7 +86,6 @@ _(Note: Depending on the implementation, the response may be wrapped in a pagina
 **Roles:** `MAIN_ADMIN`
 
 ### Path Parameters
-
 - `id` (string) — User identifier
 
 ### Request Body — `UpdateUserRoleDto`
@@ -102,7 +97,6 @@ _(Note: Depending on the implementation, the response may be wrapped in a pagina
 ```
 
 **Field details**
-
 - `role` (enum `Role`, required)
 
 ### Responses

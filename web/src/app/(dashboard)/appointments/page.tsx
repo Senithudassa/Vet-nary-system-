@@ -120,6 +120,13 @@ export default function AppointmentsPage() {
   // Status update loading
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
+  // Pet verification dialog (Vet)
+  const [isVerifyOpen, setIsVerifyOpen] = useState(false);
+  const [verifyingPetId, setVerifyingPetId] = useState<string | null>(null);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyDetailsLoading, setVerifyDetailsLoading] = useState(false);
+  const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
+
   const isVet = userRole === "VET" || userRole === "vet";
   const isCustomer = userRole === "CUSTOMER" || userRole === "customer";
 
@@ -133,14 +140,18 @@ export default function AppointmentsPage() {
         if (profile.role === "VET" || profile.role === "vet") {
           const cId = profile.clinicId ?? "";
           setClinicId(cId);
-          if (cId) {
-            const [apts, q] = await Promise.all([
-              appointmentService.getClinicAppointments(cId),
-              appointmentService.getQueue(cId),
-            ]);
-            setAppointments(Array.isArray(apts) ? apts : []);
-            setQueue(Array.isArray(q) ? q : []);
-          }
+          const [apts, q, vetPets] = await Promise.all([
+            cId
+              ? appointmentService.getClinicAppointments(cId)
+              : Promise.resolve([]),
+            cId ? appointmentService.getQueue(cId) : Promise.resolve([]),
+            appointmentService.getPetsForVet(),
+          ]);
+          setAppointments(Array.isArray(apts) ? apts : []);
+          setQueue(Array.isArray(q) ? q : []);
+          setPets(
+            Array.isArray(vetPets) ? vetPets.filter((p) => p.isActive) : [],
+          );
         } else {
           const [apts, cls, myPets] = await Promise.all([
             appointmentService.getMyAppointments(),
@@ -270,6 +281,64 @@ export default function AppointmentsPage() {
       setQueueAddLoading(false);
     }
   };
+
+  // ── Pet Verification ─────────────────────────────────────────────────────────
+  const handleOpenVerification = async (petId?: string) => {
+    if (!petId) {
+      toast.error("Pet information is unavailable.");
+      return;
+    }
+    setIsVerifyOpen(true);
+    setVerifyingPetId(petId);
+    setSelectedPet(null);
+    setVerifyDetailsLoading(true);
+    try {
+      const data = await appointmentService.getPetDetails(petId);
+      setSelectedPet(data);
+    } catch (err: unknown) {
+      toast.error((err as Error).message ?? "Failed to load pet details.");
+    } finally {
+      setVerifyDetailsLoading(false);
+    }
+  };
+
+  const handleVerifyPet = async () => {
+    if (!verifyingPetId) {
+      toast.error("Pet information is unavailable.");
+      return;
+    }
+    setVerifyLoading(true);
+    try {
+      const updated = await appointmentService.verifyPet(verifyingPetId);
+      setSelectedPet(updated);
+      setPets((prev) =>
+        prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)),
+      );
+      toast.success("Pet verified successfully!");
+    } catch (err: unknown) {
+      toast.error((err as Error).message ?? "Failed to verify pet.");
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
+  const getPetById = useCallback(
+    (petId?: string) => {
+      if (!petId) return null;
+      return pets.find((p) => p.id === petId) ?? null;
+    },
+    [pets],
+  );
+
+  const formatDateTime = useCallback((value?: string) => {
+    if (!value) return "—";
+    return new Date(value).toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }, []);
 
   // ── Derived ──────────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -598,6 +667,7 @@ export default function AppointmentsPage() {
                       <TableHead>Owner</TableHead>
                       <TableHead>Clinic</TableHead>
                       <TableHead>Reason</TableHead>
+                      <TableHead>Verification</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -606,7 +676,7 @@ export default function AppointmentsPage() {
                     {filtered.length === 0 ? (
                       <TableRow>
                         <TableCell
-                          colSpan={7}
+                          colSpan={8}
                           className="text-center py-8 text-muted-foreground"
                         >
                           No appointments found.
@@ -614,9 +684,11 @@ export default function AppointmentsPage() {
                       </TableRow>
                     ) : (
                       filtered.map((apt) => (
-                        <TableRow 
-                          key={apt.id} 
-                          className={isVet ? "cursor-pointer hover:bg-muted/50" : ""}
+                        <TableRow
+                          key={apt.id}
+                          className={
+                            isVet ? "cursor-pointer hover:bg-muted/50" : ""
+                          }
                           onClick={() => {
                             if (isVet) router.push(`/appointments/${apt.id}`);
                           }}
@@ -649,6 +721,46 @@ export default function AppointmentsPage() {
                           </TableCell>
                           <TableCell className="text-sm max-w-[200px] truncate">
                             {apt.reason ?? "—"}
+                          </TableCell>
+                          <TableCell>
+                            {(() => {
+                              const petRecord = getPetById(apt.petId);
+                              const verificationLabel = petRecord
+                                ? petRecord.isVerified
+                                  ? "Verified"
+                                  : "Unverified"
+                                : "Unknown";
+                              const isVerified = petRecord?.isVerified ?? false;
+
+                              return (
+                                <div className="flex items-center gap-2">
+                                  <Badge
+                                    variant={
+                                      verificationLabel === "Verified"
+                                        ? "default"
+                                        : "secondary"
+                                    }
+                                    className={
+                                      verificationLabel === "Verified"
+                                        ? "bg-green-500 hover:bg-green-600"
+                                        : ""
+                                    }
+                                  >
+                                    {verificationLabel}
+                                  </Badge>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleOpenVerification(apt.petId);
+                                    }}
+                                  >
+                                    {isVet && !isVerified ? "Verify" : "View"}
+                                  </Button>
+                                </div>
+                              );
+                            })()}
                           </TableCell>
                           <TableCell>
                             <div
@@ -837,6 +949,102 @@ export default function AppointmentsPage() {
             </CardContent>
           </Card>
         )}
+
+        <Dialog
+          open={isVerifyOpen}
+          onOpenChange={(open) => {
+            setIsVerifyOpen(open);
+            if (!open) {
+              setVerifyingPetId(null);
+              setSelectedPet(null);
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Pet Verification</DialogTitle>
+              <DialogDescription>
+                Review pet details and verification status.
+              </DialogDescription>
+            </DialogHeader>
+            {verifyDetailsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : selectedPet ? (
+              <div className="space-y-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={selectedPet.isVerified ? "default" : "secondary"}
+                    className={
+                      selectedPet.isVerified
+                        ? "bg-green-500 hover:bg-green-600"
+                        : ""
+                    }
+                  >
+                    {selectedPet.isVerified ? "Verified" : "Unverified"}
+                  </Badge>
+                  {selectedPet.isVerified && (
+                    <span className="text-xs text-muted-foreground">
+                      Verified {formatDateTime(selectedPet.updatedAt)}
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="font-medium">Species:</span>{" "}
+                    {selectedPet.species}
+                  </div>
+                  <div>
+                    <span className="font-medium">Breed:</span>{" "}
+                    {selectedPet.breed || "—"}
+                  </div>
+                  <div>
+                    <span className="font-medium">Weight:</span>{" "}
+                    {selectedPet.weight ? `${selectedPet.weight} kg` : "—"}
+                  </div>
+                  <div>
+                    <span className="font-medium">Microchip:</span>{" "}
+                    {selectedPet.microchip || "—"}
+                  </div>
+                </div>
+                <div className="border-t pt-3">
+                  <p className="font-medium mb-2">Owner</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      {selectedPet.owner?.firstName}{" "}
+                      {selectedPet.owner?.lastName}
+                    </div>
+                    <div>{selectedPet.owner?.phone || "—"}</div>
+                    <div className="col-span-2">
+                      {selectedPet.owner?.email || "—"}
+                    </div>
+                  </div>
+                </div>
+                <div className="border-t pt-3 text-xs text-muted-foreground">
+                  Registered: {formatDateTime(selectedPet.createdAt)}
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                No pet details available.
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsVerifyOpen(false)}>
+                Close
+              </Button>
+              {isVet && selectedPet && !selectedPet.isVerified && (
+                <Button onClick={handleVerifyPet} disabled={verifyLoading}>
+                  {verifyLoading && (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  )}
+                  Verify Pet
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </ProtectedRoute>
   );

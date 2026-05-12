@@ -22,7 +22,7 @@ All endpoints require **Bearer JWT** authentication.
 **GET** `/vetbook/:petId`
 
 **Roles:** `CUSTOMER`, `VET`  
-**Description:** Returns a merged, sorted timeline of medical records and vaccinations for a pet.
+**Description:** Returns a merged, sorted timeline of medical records, vaccinations, and prescriptions for a pet.
 
 **Path Params**
 - `petId` (string, required) — Pet ID (UUID)
@@ -91,6 +91,31 @@ Returns an array of timeline items (sorted by `recordDate` desc). Each item incl
       "lastName": "Doe"
     },
     "type": "VACCINE"
+  },
+  {
+    "id": "prescription-uuid",
+    "petId": "pet-uuid",
+    "vetId": "vet-user-uuid",
+    "clinicId": "clinic-uuid",
+    "medicalRecordId": null,
+    "appointmentId": "appointment-uuid",
+    "medicineName": "Amoxicillin",
+    "dosage": "500mg",
+    "frequency": "Twice a day",
+    "duration": "7 days",
+    "notes": "Take after meals",
+    "issuedAt": "2024-04-10T10:30:00.000Z",
+    "updatedAt": "2024-04-10T10:30:00.000Z",
+    "clinic": {
+      "id": "clinic-uuid",
+      "name": "Happy Paws Clinic"
+    },
+    "vet": {
+      "firstName": "Jane",
+      "lastName": "Doe"
+    },
+    "type": "PRESCRIPTION",
+    "recordDate": "2024-04-10T10:30:00.000Z"
   }
 ]
 ```
@@ -185,7 +210,7 @@ Returns an array of timeline items (sorted by `recordDate` desc). Each item incl
 **GET** `/clinics/:clinicId/records`
 
 **Roles:** `VET`  
-**Description:** Returns all medical records and vaccination records for a clinic.
+**Description:** Returns all medical records, vaccination records, and prescriptions for a clinic.
 
 **Path Params**
 - `clinicId` (string, required)
@@ -251,12 +276,91 @@ Returns an array of timeline items (sorted by `recordDate` desc). Each item incl
         "lastName": "Doe"
       }
     }
+  ],
+  "prescriptions": [
+    {
+      "id": "prescription-uuid",
+      "petId": "pet-uuid",
+      "vetId": "vet-user-uuid",
+      "clinicId": "clinic-uuid",
+      "medicineName": "Amoxicillin",
+      "pet": { "name": "Buddy" },
+      "vet": { "firstName": "Jane", "lastName": "Doe" }
+    }
   ]
 }
 ```
 
 **Errors**
 - `403 Forbidden` — Not authorized to view records for this clinic
+
+---
+
+### 5) Add Prescription (Vet Only)
+**POST** `/vetbook/:petId/prescription`
+
+**Roles:** `VET`  
+**Description:** Creates a prescription for a pet.
+
+**Path Params**
+- `petId` (string, required)
+
+**Request Body**
+```json
+{
+  "clinicId": "clinic-uuid",
+  "medicalRecordId": "medical-record-uuid (optional)",
+  "appointmentId": "appointment-uuid (optional)",
+  "medicineName": "Amoxicillin",
+  "dosage": "500mg",
+  "frequency": "Twice a day",
+  "duration": "7 days",
+  "notes": "Take after meals"
+}
+```
+
+**Response: 201**
+Returns the created prescription object.
+
+---
+
+### 6) Delete Prescription (Vet Only)
+**DELETE** `/vetbook/prescription/:id`
+
+**Roles:** `VET`  
+**Description:** Deletes a prescription record.
+
+**Path Params**
+- `id` (string, required) — Prescription ID
+
+**Response: 200**
+```json
+{ "id": "prescription-uuid" }
+```
+
+---
+
+### 7) Get Pet Prescriptions
+**GET** `/vetbook/:petId/prescriptions`
+
+**Roles:** `CUSTOMER`, `VET`  
+**Description:** Lists all prescriptions for a specific pet.
+
+---
+
+### 8) Get Clinic Prescriptions
+**GET** `/clinics/:clinicId/prescriptions`
+
+**Roles:** `VET`, `MAIN_ADMIN`  
+**Description:** Lists all prescriptions issued at a specific clinic.
+
+---
+
+### 9) Get Appointment Prescriptions
+**GET** `/appointments/:appointmentId/prescriptions`
+
+**Roles:** `CUSTOMER`, `VET`  
+**Description:** Lists all prescriptions linked to a specific appointment.
 
 ---
 
@@ -290,6 +394,25 @@ Returns an array of timeline items (sorted by `recordDate` desc). Each item incl
   "nextDueDate": "string (date-time) | null",
   "recordDate": "string (date-time)",
   "createdAt": "string (date-time)"
+}
+```
+
+### Prescription
+```json
+{
+  "id": "string",
+  "petId": "string",
+  "vetId": "string",
+  "clinicId": "string",
+  "medicalRecordId": "string | null",
+  "appointmentId": "string | null",
+  "medicineName": "string",
+  "dosage": "string | null",
+  "frequency": "string | null",
+  "duration": "string | null",
+  "notes": "string | null",
+  "issuedAt": "string (date-time)",
+  "updatedAt": "string (date-time)"
 }
 ```
 

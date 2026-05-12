@@ -149,10 +149,10 @@ export default function PetDashboard() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: "#D1FAE5" }]}
-            onPress={() => router.push("/coming-soon" as any)}
+            onPress={() => router.push("/medications" as any)}
           >
             <Pill size={24} color="#000" style={{ marginBottom: 8 }} />
-            <Text style={styles.actionBtnText}>Pharmacy</Text>
+            <Text style={styles.actionBtnText}>Medications</Text>
           </TouchableOpacity>
         </View>
 
