@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const BASE_URL = "http://192.168.8.158:3001/api/v1";
+const BASE_URL = "http://192.168.8.104:3001/api/v1";
 
 export type UserRole = "MAIN_ADMIN" | "MINOR_ADMIN" | "VET" | "CUSTOMER";
 
@@ -210,9 +210,14 @@ class ApiClient {
     return response.json();
   }
 
-  async getVetsFromAllClinics(): Promise<(Vet & { clinicId: string; clinicName: string })[]> {
+  async getVetsFromAllClinics(): Promise<
+    (Vet & { clinicId: string; clinicName: string })[]
+  > {
     const clinics = await this.getClinics();
-    const vetMap = new Map<string, Vet & { clinicId: string; clinicName: string }>();
+    const vetMap = new Map<
+      string,
+      Vet & { clinicId: string; clinicName: string }
+    >();
 
     await Promise.all(
       clinics.map(async (clinic) => {
@@ -248,7 +253,7 @@ class ApiClient {
         } catch {
           // skip clinics that fail to load
         }
-      })
+      }),
     );
 
     return Array.from(vetMap.values());
