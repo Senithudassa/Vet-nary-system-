@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -37,6 +37,8 @@ interface ClinicForm {
   clinicName: string;
   clinicAddress: string;
   operatingHours: string;
+  clinicLatitude: number | null;
+  clinicLongitude: number | null;
 }
 
 type OperatingDay = {
@@ -147,6 +149,35 @@ const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "",
 );
 const REGISTRATION_FEE_CENTS = 5000;
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
+
+const loadGoogleMapsScript = () =>
+  new Promise<boolean>((resolve, reject) => {
+    if (typeof window === "undefined") return resolve(false);
+
+    const existing = document.querySelector('script[data-google-maps="true"]');
+    if (existing) {
+      if ((window as any).google?.maps) return resolve(true);
+      existing.addEventListener("load", () => resolve(true));
+      existing.addEventListener("error", () =>
+        reject(new Error("Failed to load Google Maps.")),
+      );
+      return;
+    }
+
+    if (!GOOGLE_MAPS_API_KEY) {
+      return reject(new Error("Google Maps API key is missing."));
+    }
+
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}`;
+    script.async = true;
+    script.defer = true;
+    script.dataset.googleMaps = "true";
+    script.onload = () => resolve(true);
+    script.onerror = () => reject(new Error("Failed to load Google Maps."));
+    document.head.appendChild(script);
+  });
 
 // ─── Payment Form ─────────────────────────────────────────────────────────────
 function PaymentForm({
@@ -275,6 +306,8 @@ export default function RegisterPage() {
     clinicName: "",
     clinicAddress: "",
     operatingHours: "",
+    clinicLatitude: null,
+    clinicLongitude: null,
   });
 
   const [operatingDays, setOperatingDays] = useState<OperatingDay[]>(() =>
@@ -296,6 +329,13 @@ export default function RegisterPage() {
   const [clientSecret, setClientSecret] = useState("");
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState("");
+  const [mapsReady, setMapsReady] = useState(false);
+  const [mapsError, setMapsError] = useState("");
+
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const geocoderRef = useRef<any>(null);
 
   const amountLabel = `$${(REGISTRATION_FEE_CENTS / 100).toFixed(2)}`;
 
@@ -305,6 +345,91 @@ export default function RegisterPage() {
       operatingHours: buildOperatingHoursSummary(operatingDays),
     }));
   }, [operatingDays]);
+
+  useEffect(() => {
+    if (step !== 2 || mapsReady) return;
+
+    setMapsError("");
+    loadGoogleMapsScript()
+      .then(() => setMapsReady(true))
+      .catch((err) =>
+        setMapsError(
+          err instanceof Error ? err.message : "Failed to load Google Maps.",
+        ),
+      );
+  }, [step, mapsReady]);
+
+  useEffect(() => {
+    if (
+      step !== 2 ||
+      !mapsReady ||
+      mapInstanceRef.current ||
+      !mapContainerRef.current
+    )
+      return;
+
+    const google = (window as any).google;
+    if (!google?.maps) return;
+
+    const hasLocation =
+      clinic.clinicLatitude !== null && clinic.clinicLongitude !== null;
+    const center = hasLocation
+      ? {
+          lat: clinic.clinicLatitude as number,
+          lng: clinic.clinicLongitude as number,
+        }
+      : { lat: 0, lng: 0 };
+
+    const map = new google.maps.Map(mapContainerRef.current, {
+      center,
+      zoom: hasLocation ? 16 : 2,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+    });
+
+    mapInstanceRef.current = map;
+    geocoderRef.current = new google.maps.Geocoder();
+
+    if (hasLocation) {
+      markerRef.current = new google.maps.Marker({ position: center, map });
+    }
+
+    map.addListener("click", (e: any) => {
+      if (!e?.latLng) return;
+      const lat = e.latLng.lat();
+      const lng = e.latLng.lng();
+      const location = { lat, lng };
+
+      if (!markerRef.current) {
+        markerRef.current = new google.maps.Marker({ position: location, map });
+      } else {
+        markerRef.current.setPosition(location);
+      }
+
+      setClinic((prev) => ({
+        ...prev,
+        clinicLatitude: lat,
+        clinicLongitude: lng,
+      }));
+
+      if (geocoderRef.current) {
+        geocoderRef.current.geocode(
+          { location },
+          (results: any, status: string) => {
+            if (status === "OK" && results?.[0]?.formatted_address) {
+              setClinic((prev) => ({
+                ...prev,
+                clinicLatitude: lat,
+                clinicLongitude: lng,
+                clinicAddress: results[0].formatted_address,
+              }));
+            }
+          },
+        );
+      }
+    });
+  }, [step, mapsReady, clinic.clinicLatitude, clinic.clinicLongitude]);
 
   const initializePayment = async () => {
     setPaymentError("");
@@ -352,6 +477,61 @@ export default function RegisterPage() {
   const handlePaymentSuccess = () => {
     setPaymentComplete(true);
     handleRegister(true);
+  };
+
+  const updateClinicLocation = (lat: number, lng: number, address?: string) =>
+    setClinic((prev) => ({
+      ...prev,
+      clinicLatitude: lat,
+      clinicLongitude: lng,
+      clinicAddress: address ?? prev.clinicAddress,
+    }));
+
+  const handleUseMyLocation = () => {
+    if (!mapsReady || !mapInstanceRef.current) {
+      setMapsError("Map is not ready yet.");
+      return;
+    }
+    if (!navigator.geolocation) {
+      setMapsError("Geolocation is not supported by this browser.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const google = (window as any).google;
+        const map = mapInstanceRef.current;
+        const location = { lat, lng };
+
+        map.setCenter(location);
+        map.setZoom(16);
+
+        if (!markerRef.current) {
+          markerRef.current = new google.maps.Marker({
+            position: location,
+            map,
+          });
+        } else {
+          markerRef.current.setPosition(location);
+        }
+
+        updateClinicLocation(lat, lng);
+
+        if (geocoderRef.current) {
+          geocoderRef.current.geocode(
+            { location },
+            (results: any, status: string) => {
+              if (status === "OK" && results?.[0]?.formatted_address) {
+                updateClinicLocation(lat, lng, results[0].formatted_address);
+              }
+            },
+          );
+        }
+      },
+      () => setMapsError("Unable to access your location."),
+    );
   };
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -408,6 +588,9 @@ export default function RegisterPage() {
     if (!clinic.clinicName.trim()) return setError("Clinic name is required.");
     if (!clinic.clinicAddress.trim())
       return setError("Clinic address is required.");
+    if (clinic.clinicLatitude === null || clinic.clinicLongitude === null) {
+      return setError("Please pick the clinic location on the map.");
+    }
 
     const enabledDays = operatingDays.filter((day) => day.enabled);
     if (!enabledDays.length) {
@@ -440,6 +623,9 @@ export default function RegisterPage() {
     if (!clinic.clinicName.trim()) return setError("Clinic name is required.");
     if (!clinic.clinicAddress.trim())
       return setError("Clinic address is required.");
+    if (clinic.clinicLatitude === null || clinic.clinicLongitude === null) {
+      return setError("Please pick the clinic location on the map.");
+    }
 
     setIsSubmitting(true);
 
@@ -455,12 +641,16 @@ export default function RegisterPage() {
       });
 
       // 2️⃣ Register the clinic, linked to the new doctor
-      await authService.registerClinic({
+      const clinicPayload = {
         ownerId: doctorData.id,
         clinicName: clinic.clinicName,
         clinicAddress: clinic.clinicAddress,
         operatingHours: clinic.operatingHours || undefined,
-      });
+        latitude: clinic.clinicLatitude,
+        longitude: clinic.clinicLongitude,
+      };
+
+      await authService.registerClinic(clinicPayload);
 
       // 🎉 Both succeeded
       setSuccess(true);
@@ -801,6 +991,63 @@ export default function RegisterPage() {
                   className="w-full border-black rounded-md px-4 py-3 text-sm font-semibold bg-[#FAF9F6] resize-none focus:outline-none focus:ring-3 focus:ring-[#818CF8] transition-shadow"
                   style={inputStyle}
                 />
+              </Field>
+
+              {/* Location Picker */}
+              <Field
+                id="clinicLocation"
+                label="Clinic Location (Pick on Map)"
+                required
+              >
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold text-gray-600">
+                    Click on the map to drop a pin. The address and coordinates
+                    will auto-fill.
+                  </p>
+                  <div
+                    className="h-64 w-full border-black rounded-md overflow-hidden bg-[#FAF9F6]"
+                    style={{ borderWidth: "3px" }}
+                  >
+                    {mapsError ? (
+                      <div className="h-full w-full flex items-center justify-center text-sm font-semibold text-red-600 bg-red-50">
+                        {mapsError}
+                      </div>
+                    ) : (
+                      <div ref={mapContainerRef} className="h-full w-full" />
+                    )}
+                  </div>
+                  {!mapsError && !mapsReady && (
+                    <p className="text-xs font-semibold text-gray-500">
+                      Loading map…
+                    </p>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="bg-[#FAF9F6] border-2 border-black rounded-md px-3 py-2 text-xs font-semibold text-gray-700">
+                      <span className="font-black text-black">Latitude: </span>
+                      {clinic.clinicLatitude !== null
+                        ? clinic.clinicLatitude.toFixed(6)
+                        : "Not set"}
+                    </div>
+                    <div className="bg-[#FAF9F6] border-2 border-black rounded-md px-3 py-2 text-xs font-semibold text-gray-700">
+                      <span className="font-black text-black">Longitude: </span>
+                      {clinic.clinicLongitude !== null
+                        ? clinic.clinicLongitude.toFixed(6)
+                        : "Not set"}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleUseMyLocation}
+                    disabled={!mapsReady}
+                    className="w-full bg-white text-black font-black text-sm py-3 border-3 border-black rounded-lg transition-transform active:translate-y-1 disabled:opacity-40 focus:outline-none"
+                    style={{
+                      borderWidth: "3px",
+                      boxShadow: "3px 3px 0px #000",
+                    }}
+                  >
+                    Use my current location
+                  </button>
+                </div>
               </Field>
 
               {/* Operating Hours */}

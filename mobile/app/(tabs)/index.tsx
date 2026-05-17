@@ -254,6 +254,17 @@ export default function PetDashboard() {
                           <Text style={styles.petCardOverlaySubtitle}>
                             to verify your pet
                           </Text>
+                          <TouchableOpacity
+                            onPress={() =>
+                              router.push("/(tabs)/discover" as any)
+                            }
+                          >
+                            <Text
+                              style={[styles.viewAllText, { marginTop: 8 }]}
+                            >
+                              CLick to make an apponmnent.
+                            </Text>
+                          </TouchableOpacity>
                         </View>
                       </View>
                     ) : null}

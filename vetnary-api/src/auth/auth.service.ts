@@ -109,6 +109,8 @@ export class AuthService {
         data: {
           name: dto.clinicName,
           address: dto.clinicAddress,
+          latitude: dto.latitude,
+          longitude: dto.longitude,
           operatingHours: dto.operatingHours,
           status: ClinicStatus.PENDING,
           ownerId: owner.id,

@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const BASE_URL = "http://192.168.8.104:3001/api/v1";
+const BASE_URL = "http://10.242.49.212:3001/api/v1";
 
 export type UserRole = "MAIN_ADMIN" | "MINOR_ADMIN" | "VET" | "CUSTOMER";
 

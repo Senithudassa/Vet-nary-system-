@@ -1,4 +1,13 @@
-import { IsEmail, IsNotEmpty, IsOptional, MinLength, IsString, IsEnum } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  MinLength,
+  IsString,
+  IsEnum,
+  IsLatitude,
+  IsLongitude,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class RegisterCustomerDto {
@@ -41,6 +50,16 @@ export class RegisterClinicDto {
   @IsNotEmpty()
   @IsString()
   clinicAddress: string;
+
+  @ApiProperty({ example: 6.9271, description: 'Clinic latitude' })
+  @IsNotEmpty()
+  @IsLatitude()
+  latitude: number;
+
+  @ApiProperty({ example: 79.8612, description: 'Clinic longitude' })
+  @IsNotEmpty()
+  @IsLongitude()
+  longitude: number;
 
   @ApiProperty({ example: '09:00 - 18:00', required: false })
   @IsOptional()

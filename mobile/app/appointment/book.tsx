@@ -16,6 +16,7 @@ import { Calendar, Clock, PawPrint, Stethoscope } from "lucide-react-native";
 import { api, Clinic } from "@/lib/api";
 import { usePets } from "@/hooks/usePets";
 import { CustomAlert } from "@/components/ui/custom-alert";
+import MapView, { Marker } from "react-native-maps";
 
 export default function AppointmentBookingScreen() {
   const { clinicId } = useLocalSearchParams<{ clinicId: string }>();
@@ -207,6 +208,27 @@ export default function AppointmentBookingScreen() {
                     <Text style={styles.infoText}>{clinic.address}</Text>
                     <Text style={styles.infoText}>{clinic.operatingHours}</Text>
                   </View>
+                </View>
+
+                <View style={styles.mapPreview}>
+                  <MapView
+                    style={styles.map}
+                    initialRegion={{
+                      latitude: clinic.latitude,
+                      longitude: clinic.longitude,
+                      latitudeDelta: 0.02,
+                      longitudeDelta: 0.02,
+                    }}
+                  >
+                    <Marker
+                      coordinate={{
+                        latitude: clinic.latitude,
+                        longitude: clinic.longitude,
+                      }}
+                      title={clinic.name}
+                      description={clinic.address}
+                    />
+                  </MapView>
                 </View>
               </>
             ) : (
@@ -420,6 +442,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginRight: 10,
+  },
+  mapPreview: {
+    marginTop: 16,
+    borderWidth: 2,
+    borderColor: "#000",
+    overflow: "hidden",
+    backgroundColor: "#fff",
+    aspectRatio: 1,
+  },
+  map: {
+    flex: 1,
   },
   centerRow: { flexDirection: "row", alignItems: "center" },
   loadingText: { marginLeft: 10, fontSize: 14, fontWeight: "700" },

@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  Image,
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -15,6 +16,18 @@ import { api, Clinic } from "@/lib/api";
 import { Building2 } from "lucide-react-native";
 
 const CLINIC_COLORS = ["#baffc9", "#ffb3ba", "#bae1ff", "#FEF08A", "#FCE7F3"];
+
+const GOOGLE_MAPS_STATIC_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+const getStaticMapUrl = (latitude: number, longitude: number) => {
+  if (!GOOGLE_MAPS_STATIC_KEY) {
+    return null;
+  }
+
+  const marker = `${latitude},${longitude}`;
+
+  return `https://maps.googleapis.com/maps/api/staticmap?center=${marker}&zoom=15&size=600x300&scale=2&maptype=roadmap&markers=color:red%7C${marker}&key=${GOOGLE_MAPS_STATIC_KEY}`;
+};
 
 export default function DiscoverScreen() {
   const [search, setSearch] = useState("");
@@ -148,6 +161,27 @@ export default function DiscoverScreen() {
                   </View>
                 </View>
 
+                <View style={styles.mapPreview}>
+                  {getStaticMapUrl(clinic.latitude, clinic.longitude) ? (
+                    <Image
+                      style={styles.mapImage}
+                      source={{
+                        uri: getStaticMapUrl(
+                          clinic.latitude,
+                          clinic.longitude,
+                        ) as string,
+                      }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.mapPlaceholder}>
+                      <Text style={styles.mapPlaceholderText}>
+                        Map preview unavailable
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
                 <View style={styles.clinicActions}>
                   <TouchableOpacity
                     style={styles.primaryActionBtn}
@@ -272,6 +306,29 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   detailText: { fontSize: 12, fontWeight: "800", color: "#000", marginLeft: 6 },
+  mapPreview: {
+    height: 140,
+    borderWidth: 2,
+    borderColor: "#000",
+    marginBottom: 16,
+    overflow: "hidden",
+  },
+  mapImage: {
+    width: "100%",
+    height: "100%",
+  },
+  mapPlaceholder: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+  mapPlaceholderText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#000",
+    textTransform: "uppercase",
+  },
   clinicActions: { flexDirection: "row", justifyContent: "space-between" },
   primaryActionBtn: {
     flex: 1,

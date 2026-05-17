@@ -3,8 +3,14 @@ const BASE_URL =
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-async function post<T>(path: string, body: unknown, token?: string): Promise<T> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+async function post<T>(
+  path: string,
+  body: unknown,
+  token?: string,
+): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -44,6 +50,8 @@ export interface RegisterClinicRequest {
   clinicName: string;
   clinicAddress: string;
   operatingHours?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface RegisterDoctorResponse {
@@ -115,11 +123,15 @@ export interface ClinicDetails {
 class AuthService {
   // ── Registration ────────────────────────────────────────────────────────────
 
-  async registerDoctor(data: RegisterDoctorRequest): Promise<RegisterDoctorResponse> {
+  async registerDoctor(
+    data: RegisterDoctorRequest,
+  ): Promise<RegisterDoctorResponse> {
     return post<RegisterDoctorResponse>("/auth/register/doctor", data);
   }
 
-  async registerClinic(data: RegisterClinicRequest): Promise<RegisterClinicResponse> {
+  async registerClinic(
+    data: RegisterClinicRequest,
+  ): Promise<RegisterClinicResponse> {
     return post<RegisterClinicResponse>("/auth/register/clinic", data);
   }
 
@@ -153,7 +165,8 @@ class AuthService {
   async getClinicDetails(clinicId: string): Promise<ClinicDetails> {
     const res = await fetch(`${BASE_URL}/clinics/${clinicId}`);
     const json = await res.json();
-    if (!res.ok) throw new Error(json?.message ?? "Failed to fetch clinic details.");
+    if (!res.ok)
+      throw new Error(json?.message ?? "Failed to fetch clinic details.");
     return json as ClinicDetails;
   }
 }
