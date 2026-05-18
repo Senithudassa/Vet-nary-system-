@@ -21,6 +21,7 @@ export interface User {
   lastName: string;
   phone?: string;
   accountNumber?: string;
+  licenseNumber?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -116,12 +117,16 @@ export interface Invoice {
 export interface SupportTicket {
   id: string;
   ownerId: string;
+  assignedVetId?: string | null;
+  assignedAdminId?: string | null;
   targetClinicId?: string;
   subject: string;
   description: string;
   status: TicketStatus;
   createdAt: string;
   updatedAt: string;
-  owner?: Pick<User, "firstName" | "lastName" | "email">;
+  owner?: Partial<User>;
+  assignedVet?: Partial<User>;
+  assignedAdmin?: Partial<User>;
   targetClinic?: Pick<Clinic, "name">;
 }

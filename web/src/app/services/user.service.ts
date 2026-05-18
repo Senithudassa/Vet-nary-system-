@@ -1,6 +1,7 @@
 import { User, Role } from "@/lib/types";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1";
+const BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1";
 
 function getToken(): string {
   if (typeof window === "undefined") return "";
@@ -14,7 +15,10 @@ function getToken(): string {
   }
 }
 
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function apiFetch<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -39,21 +43,26 @@ class UserService {
   async getUsers(params?: UserFilterDto): Promise<User[]> {
     const searchParams = new URLSearchParams();
     if (params?.search) searchParams.append("search", params.search);
-    if (params?.role && params.role !== "ALL") searchParams.append("role", params.role);
+    if (params?.role && params.role !== "ALL")
+      searchParams.append("role", params.role);
     if (params?.page) searchParams.append("page", params.page.toString());
     if (params?.limit) searchParams.append("limit", params.limit.toString());
 
     const qs = searchParams.toString();
     const url = `/users${qs ? `?${qs}` : ""}`;
-    
+
     const response = await apiFetch<any>(url);
     if (Array.isArray(response)) {
-        return response;
+      return response;
     }
     if (response && Array.isArray(response.data)) {
-        return response.data;
+      return response.data;
     }
     return [];
+  }
+
+  async getUserById(id: string): Promise<User> {
+    return apiFetch<User>(`/users/${id}`);
   }
 
   async updateUserRole(id: string, role: Role): Promise<User> {

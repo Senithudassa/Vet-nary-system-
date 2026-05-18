@@ -1,11 +1,24 @@
-import { Controller, Get, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Patch,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { UserFilterDto, UpdateUserRoleDto } from './dto/users.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { Role } from "@prisma/client";
+import { Role } from '@prisma/client';
 
 @ApiTags('User Management')
 @ApiBearerAuth()
@@ -20,6 +33,14 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
   findAll(@Query() filter: UserFilterDto) {
     return this.usersService.findAll(filter);
+  }
+
+  @Get(':id')
+  @Roles(Role.MAIN_ADMIN, Role.MINOR_ADMIN)
+  @ApiOperation({ summary: 'Get user by id' })
+  @ApiResponse({ status: 200, description: 'User retrieved successfully' })
+  findOne(@Param('id') id: string) {
+    return this.usersService.findById(id);
   }
 
   @Patch(':id/role')

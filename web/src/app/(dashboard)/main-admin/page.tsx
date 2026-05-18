@@ -1,232 +1,685 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, ShieldCheck, Clock, GitMerge, Target, AlertTriangle } from "lucide-react";
+import {
+  Users,
+  UserCheck,
+  CalendarCheck,
+  CalendarClock,
+  DollarSign,
+  PawPrint,
+  Ticket,
+  FileClock,
+  Stethoscope,
+} from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { ProtectedRoute } from "@/components/ui/protected-route";
-import { mockClinics, mockPlatformStats } from "@/lib/mock-data";
+import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 
+type PlatformStats = {
+  totalUsers: number;
+  totalActiveClients: number;
+  totalAppointments: number;
+  totalRevenue: number;
+  totalRegisteredPets: number;
+  totalOpenTickets: number;
+  pendingInvoices: number;
+  pendingVets: number;
+  appointmentsByStatus: {
+    COMPLETED: number;
+    PENDING: number;
+    CONFIRMED: number;
+  };
+};
+
+type UserSummary = {
+  id: string;
+  role?: string;
+  isActive?: boolean;
+  createdAt?: string;
+};
+
+type ClinicSummary = {
+  id: string;
+  status?: string;
+  createdAt?: string;
+};
+
+type TicketSummary = {
+  id: string;
+  status?: string;
+  createdAt?: string;
+};
+
 export default function MainAdminPage() {
-    const stats = mockPlatformStats;
+  const [stats, setStats] = useState<PlatformStats | null>(null);
+  const [users, setUsers] = useState<UserSummary[]>([]);
+  const [clinics, setClinics] = useState<ClinicSummary[]>([]);
+  const [tickets, setTickets] = useState<TicketSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
+  const { getToken } = useAuth();
 
-    const [activeClinics, setActiveClinics] = useState(
-        mockClinics.filter(c => c.status === "APPROVED").map(c => ({
-            id: c.id,
-            name: c.name,
-            status: "Online" as "Online" | "Offline",
-            errors: Math.floor(Math.random() * 3),
-            lastSync: `${Math.floor(Math.random() * 10) + 1} mins ago`,
-        }))
-    );
+  useEffect(() => {
+    let isMounted = true;
 
-    const [pendingCommits, setPendingCommits] = useState([
-        { id: "PR-892", commitMsg: "Update CL-01 Platform Discount Tier to 20%", author: "Admin Sarah", time: "10:15 AM", diff: "+5% Discount", risk: "Low" as const },
-        { id: "PR-893", commitMsg: "Reset Password for Dr. Silva (CL-02)", author: "Admin Mike", time: "11:05 AM", diff: "Auth Token Reset", risk: "High" as const },
-        { id: "PR-894", commitMsg: "Add new vaccination type to formulary", author: "Admin Sarah", time: "11:30 AM", diff: "New Row", risk: "Low" as const },
-    ]);
-
-    const [approvedDeployments, setApprovedDeployments] = useState([
-        { id: "PR-890", commitMsg: "Fix timezone bug in VetBook timeline UI", author: "System Auto", approvedBy: "Main Admin" },
-        { id: "PR-891", commitMsg: "Revoke API access for suspended CL-03", author: "Admin Sarah", approvedBy: "Main Admin" },
-    ]);
-
-    const handleAuthorize = (id: string) => {
-        const commit = pendingCommits.find(c => c.id === id);
-        if (commit) {
-            setPendingCommits(prev => prev.filter(c => c.id !== id));
-            setApprovedDeployments(prev => [...prev, {
-                id: commit.id,
-                commitMsg: commit.commitMsg,
-                author: commit.author,
-                approvedBy: "Main Admin",
-            }]);
-            toast.success(`${id} authorized and queued for deployment.`);
+    const loadOverview = async () => {
+      setIsLoading(true);
+      setStatsError(null);
+      try {
+        const token = await getToken();
+        if (!token) {
+          throw new Error("Missing authentication token.");
         }
+
+        const baseUrl =
+          process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1";
+
+        const fetchJson = async <T,>(path: string): Promise<T> => {
+          const response = await fetch(`${baseUrl}${path}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store",
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data?.message ?? `Failed to load ${path}`);
+          }
+          return data as T;
+        };
+
+        const [statsData, usersData, clinicsData, ticketsData] =
+          await Promise.all([
+            fetchJson<PlatformStats>("/admin/stats"),
+            fetchJson<unknown>("/users?limit=1000&page=1"),
+            fetchJson<unknown>("/clinics/admin/all"),
+            fetchJson<unknown>("/support-tickets"),
+          ]);
+
+        const normalizeArray = <T,>(value: unknown): T[] => {
+          if (Array.isArray(value)) return value;
+          if (Array.isArray((value as { data?: T[] })?.data)) {
+            return (value as { data?: T[] }).data ?? [];
+          }
+          return [];
+        };
+
+        if (isMounted) {
+          setStats(statsData);
+          setUsers(normalizeArray<UserSummary>(usersData));
+          setClinics(normalizeArray<ClinicSummary>(clinicsData));
+          setTickets(normalizeArray<TicketSummary>(ticketsData));
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to load stats.";
+        if (isMounted) {
+          setStatsError(message);
+          toast.error(message);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
     };
 
-    const handleReject = (id: string) => {
-        setPendingCommits(prev => prev.filter(c => c.id !== id));
-        toast.error(`${id} has been rejected.`);
+    loadOverview();
+
+    return () => {
+      isMounted = false;
     };
+  }, [getToken]);
 
-    const handleEmergencyHalt = () => {
-        setApprovedDeployments([]);
-        toast.warning("Emergency halt activated. All pending deployments cleared.");
-    };
+  const overview = stats ?? {
+    totalUsers: 0,
+    totalActiveClients: 0,
+    totalAppointments: 0,
+    totalRevenue: 0,
+    totalRegisteredPets: 0,
+    totalOpenTickets: 0,
+    pendingInvoices: 0,
+    pendingVets: 0,
+    appointmentsByStatus: {
+      COMPLETED: 0,
+      PENDING: 0,
+      CONFIRMED: 0,
+    },
+  };
 
-    return (
-        <ProtectedRoute allowedRoles={["main_admin"]}>
-            <div className="space-y-8 p-4 max-w-7xl mx-auto">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">System Control (Main Admin)</h1>
-                        <p className="text-muted-foreground mt-1">Tech support, branch monitoring, and Git-style daily deploy authorizations.</p>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button variant="destructive" onClick={handleEmergencyHalt}>
-                            <AlertTriangle className="mr-2 h-4 w-4" /> Emergency Halt Deploy
-                        </Button>
-                    </div>
-                </div>
+  const currencyFormatter = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
 
-                <div className="grid gap-4 md:grid-cols-3">
-                    <Card className="bg-primary text-primary-foreground">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Pending Commits</CardTitle>
-                            <ShieldCheck className="h-4 w-4 text-primary-foreground/70" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{pendingCommits.length} Awaiting Approval</div>
-                            <p className="text-xs text-primary-foreground/80 mt-1">From Minor Admins</p>
-                        </CardContent>
-                    </Card>
-                    <Card className="border-green-500/50">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium text-green-700">Next Daily Deploy</CardTitle>
-                            <Clock className="h-4 w-4 text-green-600" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-green-600">12:00 PM</div>
-                            <p className="text-xs text-muted-foreground mt-1">{approvedDeployments.length} updates queued for push</p>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">System Health</CardTitle>
-                            <Activity className="h-4 w-4 text-muted-foreground" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">
-                                {activeClinics.filter(c => c.status === "Online").length} / {activeClinics.length} Online
-                            </div>
-                            <p className="text-xs text-amber-600 mt-1">
-                                {activeClinics.reduce((sum, c) => sum + c.errors, 0)} non-critical errors reported
-                            </p>
-                        </CardContent>
-                    </Card>
-                </div>
+  const usersByRole = useMemo(() => {
+    const counts = new Map<string, number>();
+    users.forEach((user) => {
+      const role = user.role?.toUpperCase() ?? "UNKNOWN";
+      counts.set(role, (counts.get(role) ?? 0) + 1);
+    });
+    return Array.from(counts.entries()).map(([name, value]) => ({
+      name,
+      value,
+    }));
+  }, [users]);
 
-                <div className="grid gap-8 grid-cols-1 lg:grid-cols-2">
-                    {/* Tech Support Live View & Impersonation */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5" /> Tech Support Live View</CardTitle>
-                            <CardDescription>
-                                Monitor branch statuses. If a Vet calls with an issue, securely impersonate their dashboard to troubleshoot.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Branch</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead>Errors</TableHead>
-                                        <TableHead className="text-right">Action</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {activeClinics.map((clinic) => (
-                                        <TableRow key={clinic.id}>
-                                            <TableCell className="font-medium">{clinic.name}</TableCell>
-                                            <TableCell>
-                                                <Badge variant={clinic.status === "Online" ? "default" : "secondary"} className={clinic.status === "Online" ? "bg-green-500 hover:bg-green-600" : ""}>
-                                                    {clinic.status}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className={clinic.errors > 0 ? "text-amber-500 font-bold" : "text-muted-foreground"}>{clinic.errors}</TableCell>
-                                            <TableCell className="text-right">
-                                                <Button variant="outline" size="sm" onClick={() => toast.info(`Impersonating ${clinic.name} dashboard...`)}>
-                                                    Impersonate View
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
+  const usersByActivity = useMemo(() => {
+    const active = users.filter((user) => user.isActive).length;
+    const inactive = Math.max(users.length - active, 0);
+    return [
+      { name: "Active", value: active },
+      { name: "Inactive", value: inactive },
+    ];
+  }, [users]);
 
-                    {/* Git-Style Authorization Queue */}
-                    <Card className="border-primary/20 shadow-sm">
-                        <CardHeader className="bg-primary/5 pb-4 border-b">
-                            <CardTitle className="flex items-center gap-2"><GitMerge className="h-5 w-5 text-primary" /> Commit Authorizations</CardTitle>
-                            <CardDescription>
-                                Review system configuration changes proposed by Minor Admins. Approved changes are merged into the 12:00 PM deploy.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="pt-6">
-                            <div className="space-y-4">
-                                {pendingCommits.length === 0 ? (
-                                    <p className="text-center text-muted-foreground py-6">No pending commits. All clear!</p>
-                                ) : pendingCommits.map((commit) => (
-                                    <div key={commit.id} className="flex flex-col gap-3 p-4 border rounded-lg bg-card">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <Badge variant="outline" className="font-mono text-[10px]">{commit.id}</Badge>
-                                                    <span className="font-medium text-sm">{commit.commitMsg}</span>
-                                                </div>
-                                                <p className="text-xs text-muted-foreground">Authored by {commit.author} at {commit.time}</p>
-                                            </div>
-                                            <Badge variant={commit.risk === "High" ? "destructive" : "secondary"}>{commit.risk} Risk</Badge>
-                                        </div>
-                                        <div className="bg-muted/50 p-2 rounded text-xs font-mono text-green-600 border border-green-500/20">
-                                            {commit.diff}
-                                        </div>
-                                        <div className="flex gap-2 justify-end mt-2">
-                                            <Button variant="outline" size="sm" className="h-8" onClick={() => handleReject(commit.id)}>Reject</Button>
-                                            <Button size="sm" className="h-8 bg-primary" onClick={() => handleAuthorize(commit.id)}>Authorize Merge</Button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
+  const clinicsByStatus = useMemo(() => {
+    const counts = new Map<string, number>();
+    clinics.forEach((clinic) => {
+      const status = clinic.status?.toUpperCase() ?? "UNKNOWN";
+      counts.set(status, (counts.get(status) ?? 0) + 1);
+    });
+    return Array.from(counts.entries()).map(([name, value]) => ({
+      name,
+      value,
+    }));
+  }, [clinics]);
 
-                {/* 12:00 PM Deployment Status */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5" /> Scheduled 12:00 PM Deployment Log</CardTitle>
-                        <CardDescription>
-                            These authorized commits are queued and will automatically push to live Vet branches at exactly 12:00 PM today.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="w-[100px]">Commit ID</TableHead>
-                                    <TableHead>Commit Message</TableHead>
-                                    <TableHead>Original Author</TableHead>
-                                    <TableHead className="text-right">Authorized By</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {approvedDeployments.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
-                                            No deployments queued. All cleared by emergency halt or no commits approved.
-                                        </TableCell>
-                                    </TableRow>
-                                ) : approvedDeployments.map((deploy) => (
-                                    <TableRow key={deploy.id}>
-                                        <TableCell className="font-medium font-mono text-muted-foreground">{deploy.id}</TableCell>
-                                        <TableCell className="font-semibold">{deploy.commitMsg}</TableCell>
-                                        <TableCell>{deploy.author}</TableCell>
-                                        <TableCell className="text-right text-muted-foreground">{deploy.approvedBy}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
+  const ticketsByStatus = useMemo(() => {
+    const counts = new Map<string, number>();
+    tickets.forEach((ticket) => {
+      const status = ticket.status?.toUpperCase() ?? "UNKNOWN";
+      counts.set(status, (counts.get(status) ?? 0) + 1);
+    });
+    return Array.from(counts.entries()).map(([name, value]) => ({
+      name,
+      value,
+    }));
+  }, [tickets]);
+
+  const appointmentsByStatus = useMemo(
+    () =>
+      Object.entries(overview.appointmentsByStatus ?? {}).map(
+        ([name, value]) => ({
+          name,
+          value: Number(value ?? 0),
+        }),
+      ),
+    [overview.appointmentsByStatus],
+  );
+
+  const activeUsers =
+    usersByActivity.find((entry) => entry.name === "Active")?.value ?? 0;
+  const inactiveUsers =
+    usersByActivity.find((entry) => entry.name === "Inactive")?.value ?? 0;
+  const approvedClinics =
+    clinicsByStatus.find((entry) => entry.name === "APPROVED")?.value ?? 0;
+  const pendingClinics =
+    clinicsByStatus.find((entry) => entry.name === "PENDING")?.value ?? 0;
+
+  const chartColors = [
+    "#2563eb",
+    "#16a34a",
+    "#f59e0b",
+    "#ef4444",
+    "#a855f7",
+    "#0ea5e9",
+  ];
+
+  return (
+    <ProtectedRoute allowedRoles={["main_admin"]}>
+      <div className="space-y-8 p-6 lg:p-8 max-w-7xl mx-auto">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold tracking-tight">
+              System Control (Main Admin)
+            </h1>
+            <p className="text-muted-foreground">
+              Tech support, branch monitoring, and Git-style daily deploy
+              authorizations.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold">Platform Overview</h2>
+              <p className="text-sm text-muted-foreground">
+                Live system stats across users, clinics, and operations.
+              </p>
             </div>
-        </ProtectedRoute>
-    )
+            {isLoading ? (
+              <Badge variant="secondary">Loading stats...</Badge>
+            ) : statsError ? (
+              <Badge variant="destructive">Stats unavailable</Badge>
+            ) : (
+              <Badge variant="secondary">Live stats</Badge>
+            )}
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Users
+                </CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {isLoading ? "—" : overview.totalUsers}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Registered accounts
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Active Clients
+                </CardTitle>
+                <UserCheck className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {isLoading ? "—" : overview.totalActiveClients}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Clients with active services
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Registered Pets
+                </CardTitle>
+                <PawPrint className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {isLoading ? "—" : overview.totalRegisteredPets}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Total pets in system
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="bg-primary text-primary-foreground">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Revenue
+                </CardTitle>
+                <DollarSign className="h-4 w-4 text-primary-foreground/70" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {isLoading
+                    ? "—"
+                    : currencyFormatter.format(overview.totalRevenue)}
+                </div>
+                <p className="text-xs text-primary-foreground/80 mt-1">
+                  Gross platform revenue
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Appointments
+                </CardTitle>
+                <CalendarCheck className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {isLoading ? "—" : overview.totalAppointments}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Total scheduled visits
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Open Tickets
+                </CardTitle>
+                <Ticket className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {isLoading ? "—" : overview.totalOpenTickets}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Support issues awaiting response
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Pending Invoices
+                </CardTitle>
+                <FileClock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {isLoading ? "—" : overview.pendingInvoices}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Invoices awaiting payment
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Pending Vets
+                </CardTitle>
+                <Stethoscope className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {isLoading ? "—" : overview.pendingVets}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Vet approvals in queue
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="border-primary/20">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Appointments by Status
+                </CardTitle>
+                <CalendarClock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Confirmed</span>
+                  <Badge variant="secondary">
+                    {isLoading ? "—" : overview.appointmentsByStatus.CONFIRMED}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Pending</span>
+                  <Badge variant="outline">
+                    {isLoading ? "—" : overview.appointmentsByStatus.PENDING}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Completed</span>
+                  <Badge variant="default">
+                    {isLoading ? "—" : overview.appointmentsByStatus.COMPLETED}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold">Operational Breakdown</h2>
+            <p className="text-sm text-muted-foreground">
+              Live counts derived from core data sources.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Active Users
+                </CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {isLoading ? "—" : activeUsers}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Users currently active
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Inactive Users
+                </CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {isLoading ? "—" : inactiveUsers}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Users currently inactive
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Approved Clinics
+                </CardTitle>
+                <UserCheck className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {isLoading ? "—" : approvedClinics}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Clinics approved to operate
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Pending Clinics
+                </CardTitle>
+                <FileClock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {isLoading ? "—" : pendingClinics}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Awaiting approval
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold">Analytics</h2>
+            <p className="text-sm text-muted-foreground">
+              Visual summaries of platform activity.
+            </p>
+          </div>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Appointments by Status</CardTitle>
+                <CardDescription>
+                  Distribution of current appointment states.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-64">
+                {isLoading ? (
+                  <p className="text-sm text-muted-foreground">
+                    Loading chart...
+                  </p>
+                ) : statsError ? (
+                  <p className="text-sm text-muted-foreground">
+                    Chart unavailable.
+                  </p>
+                ) : appointmentsByStatus.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No data yet.</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={appointmentsByStatus}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis allowDecimals={false} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar
+                        dataKey="value"
+                        fill="#2563eb"
+                        radius={[6, 6, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Users by Role</CardTitle>
+                <CardDescription>
+                  Role distribution across all registered users.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-64">
+                {isLoading ? (
+                  <p className="text-sm text-muted-foreground">
+                    Loading chart...
+                  </p>
+                ) : statsError ? (
+                  <p className="text-sm text-muted-foreground">
+                    Chart unavailable.
+                  </p>
+                ) : usersByRole.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No data yet.</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={usersByRole}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis allowDecimals={false} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar
+                        dataKey="value"
+                        fill="#16a34a"
+                        radius={[6, 6, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Clinics by Status</CardTitle>
+                <CardDescription>
+                  Approval pipeline for registered clinics.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-64">
+                {isLoading ? (
+                  <p className="text-sm text-muted-foreground">
+                    Loading chart...
+                  </p>
+                ) : statsError ? (
+                  <p className="text-sm text-muted-foreground">
+                    Chart unavailable.
+                  </p>
+                ) : clinicsByStatus.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No data yet.</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={clinicsByStatus}
+                        dataKey="value"
+                        nameKey="name"
+                        innerRadius={50}
+                        outerRadius={90}
+                        paddingAngle={3}
+                      >
+                        {clinicsByStatus.map((entry, index) => (
+                          <Cell
+                            key={`${entry.name}-${index}`}
+                            fill={chartColors[index % chartColors.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Tickets by Status</CardTitle>
+                <CardDescription>
+                  Current workload across support tickets.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="h-64">
+                {isLoading ? (
+                  <p className="text-sm text-muted-foreground">
+                    Loading chart...
+                  </p>
+                ) : statsError ? (
+                  <p className="text-sm text-muted-foreground">
+                    Chart unavailable.
+                  </p>
+                ) : ticketsByStatus.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No data yet.</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={ticketsByStatus}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis allowDecimals={false} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar
+                        dataKey="value"
+                        fill="#f59e0b"
+                        radius={[6, 6, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </ProtectedRoute>
+  );
 }
