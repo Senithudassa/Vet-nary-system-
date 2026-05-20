@@ -47,7 +47,7 @@ model User {
   lastName      String
   phone         String?
   accountNumber String?  @unique
-  licenseNumber String?  @unique
+  licenseCertificateUrl String?
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

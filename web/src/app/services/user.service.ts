@@ -1,5 +1,17 @@
 import { User, Role } from "@/lib/types";
 
+export interface PaginationMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface PaginatedUsers {
+  data: User[];
+  meta: PaginationMeta;
+}
+
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1";
 
@@ -27,8 +39,11 @@ async function apiFetch<T>(
   };
 
   const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json?.message ?? `Request to ${path} failed.`);
+  const json: unknown = await res.json();
+  if (!res.ok)
+    throw new Error(
+      (json as { message?: string })?.message ?? `Request to ${path} failed.`,
+    );
   return json as T;
 }
 
@@ -40,7 +55,7 @@ export interface UserFilterDto {
 }
 
 class UserService {
-  async getUsers(params?: UserFilterDto): Promise<User[]> {
+  async getUsers(params?: UserFilterDto): Promise<PaginatedUsers> {
     const searchParams = new URLSearchParams();
     if (params?.search) searchParams.append("search", params.search);
     if (params?.role && params.role !== "ALL")
@@ -51,14 +66,24 @@ class UserService {
     const qs = searchParams.toString();
     const url = `/users${qs ? `?${qs}` : ""}`;
 
-    const response = await apiFetch<any>(url);
+    const response = await apiFetch<
+      User[] | { data: User[]; meta?: PaginationMeta }
+    >(url);
+
+    const defaultMeta: PaginationMeta = {
+      total: 0,
+      page: 1,
+      limit: 10,
+      totalPages: 1,
+    };
+
     if (Array.isArray(response)) {
-      return response;
+      return { data: response, meta: defaultMeta };
     }
     if (response && Array.isArray(response.data)) {
-      return response.data;
+      return { data: response.data, meta: response.meta ?? defaultMeta };
     }
-    return [];
+    return { data: [], meta: defaultMeta };
   }
 
   async getUserById(id: string): Promise<User> {

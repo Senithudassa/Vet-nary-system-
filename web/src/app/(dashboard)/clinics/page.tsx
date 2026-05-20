@@ -29,6 +29,7 @@ import {
   Phone,
   Mail,
   User,
+  ExternalLink,
 } from "lucide-react";
 import {
   Dialog,
@@ -546,12 +547,6 @@ export default function ClinicsPage() {
                             {selectedClinic.owner.accountNumber || "—"}
                           </span>
                         </div>
-                        <div>
-                          License No:{" "}
-                          <span className="text-foreground">
-                            {selectedClinic.owner.licenseNumber || "—"}
-                          </span>
-                        </div>
                       </div>
                     </div>
                   ) : (
@@ -561,6 +556,30 @@ export default function ClinicsPage() {
                   )}
                 </div>
               </div>
+
+              {selectedClinic.owner?.licenseCertificateUrl && (
+                <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+                  <div className="text-xs uppercase text-muted-foreground">
+                    Owner License Certificate
+                  </div>
+                  <div className="space-y-2">
+                    <img
+                      src={selectedClinic.owner.licenseCertificateUrl}
+                      alt="License Certificate"
+                      className="w-full max-h-100 object-contain rounded-md border bg-background"
+                    />
+                    <a
+                      href={selectedClinic.owner.licenseCertificateUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      View Full Size
+                    </a>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2 rounded-lg border bg-muted/30 p-4">
                 <div className="text-xs uppercase text-muted-foreground">

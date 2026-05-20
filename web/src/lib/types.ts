@@ -21,7 +21,7 @@ export interface User {
   lastName: string;
   phone?: string;
   accountNumber?: string;
-  licenseNumber?: string;
+  licenseCertificateUrl?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

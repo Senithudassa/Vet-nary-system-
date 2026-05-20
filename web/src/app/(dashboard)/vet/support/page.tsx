@@ -40,6 +40,7 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  ArrowUpCircle,
 } from "lucide-react";
 import type { SupportTicket, TicketStatus, User } from "@/lib/types";
 import { supportTicketsService } from "@/app/services/support-tickets.service";
@@ -88,7 +89,7 @@ const formatDateTime = (value?: string) => {
   });
 };
 
-export default function SupportPage() {
+export default function VetSupportPage() {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [viewTicket, setViewTicket] = useState<SupportTicket | null>(null);
@@ -96,12 +97,15 @@ export default function SupportPage() {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatingTicketId, setUpdatingTicketId] = useState<string | null>(null);
+  const [escalatingTicketId, setEscalatingTicketId] = useState<string | null>(
+    null,
+  );
 
   const loadTickets = async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await supportTicketsService.listAllTickets();
+      const data = await supportTicketsService.listAssignedTickets();
       setTickets(data);
     } catch (err) {
       const message =
@@ -131,6 +135,7 @@ export default function SupportPage() {
     }),
     [tickets],
   );
+
   const clinicDetails =
     (viewTicket?.targetClinic as ClinicDetails | undefined) ?? undefined;
 
@@ -141,9 +146,7 @@ export default function SupportPage() {
         status: newStatus,
       });
       setTickets((prev) => prev.map((t) => (t.id === id ? updated : t)));
-      if (viewTicket?.id === id) {
-        setViewTicket(updated);
-      }
+      if (viewTicket?.id === id) setViewTicket(updated);
       toast.success(
         `Ticket status updated to ${newStatus.replace("_", " ").toLowerCase()}.`,
       );
@@ -153,6 +156,22 @@ export default function SupportPage() {
       );
     } finally {
       setUpdatingTicketId(null);
+    }
+  };
+
+  const escalateToAdmin = async (id: string) => {
+    setEscalatingTicketId(id);
+    try {
+      const updated = await supportTicketsService.escalateTicket(id);
+      setTickets((prev) => prev.map((t) => (t.id === id ? updated : t)));
+      if (viewTicket?.id === id) setViewTicket(updated);
+      toast.success("Ticket escalated to admin successfully.");
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to escalate ticket.",
+      );
+    } finally {
+      setEscalatingTicketId(null);
     }
   };
 
@@ -205,12 +224,12 @@ export default function SupportPage() {
   };
 
   return (
-    <ProtectedRoute allowedRoles={["main_admin", "minor_admin"]}>
+    <ProtectedRoute allowedRoles={["vet"]}>
       <div className="space-y-8 p-4 max-w-7xl mx-auto">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Support Tickets</h1>
           <p className="text-muted-foreground mt-1">
-            Track and manage customer support requests.
+            View and manage support tickets assigned to you.
           </p>
         </div>
 
@@ -269,9 +288,9 @@ export default function SupportPage() {
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <CardTitle>All Support Tickets</CardTitle>
+                <CardTitle>Assigned Tickets</CardTitle>
                 <CardDescription>
-                  Review and respond to customer issues.
+                  Support tickets assigned to you from your clinic.
                 </CardDescription>
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -339,9 +358,12 @@ export default function SupportPage() {
                   </TableRow>
                 ) : (
                   filtered.map((ticket) => (
-                    <TableRow key={ticket.id}>
+                    <TableRow
+                      key={ticket.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                    >
                       <TableCell className="font-mono text-sm">
-                        {ticket.id.toUpperCase()}
+                        {ticket.id.slice(0, 8).toUpperCase()}
                       </TableCell>
                       <TableCell className="font-medium max-w-[200px] truncate">
                         {ticket.subject}
@@ -381,7 +403,7 @@ export default function SupportPage() {
                                 <MessageSquare className="h-3 w-3 mr-1" /> View
                               </Button>
                             </DialogTrigger>
-                            <DialogContent>
+                            <DialogContent className="max-w-2xl">
                               <DialogHeader>
                                 <DialogTitle>{viewTicket?.subject}</DialogTitle>
                                 <DialogDescription>
@@ -410,13 +432,12 @@ export default function SupportPage() {
                                     </div>
                                     <div className="grid gap-3 sm:grid-cols-2">
                                       <div className="rounded-md border p-3">
-                                        <div className="text-xs uppercase text-muted-foreground">
+                                        <div className="text-xs uppercase text-muted-foreground mb-1">
                                           Creator
                                         </div>
                                         <div className="font-medium">
                                           {formatName(viewTicket.owner)}
                                         </div>
-
                                         <div className="text-muted-foreground">
                                           {viewTicket.owner?.email ??
                                             "No email on file"}
@@ -425,15 +446,14 @@ export default function SupportPage() {
                                           {viewTicket.owner?.phone ??
                                             "No phone number added."}
                                         </div>
-
                                         {viewTicket.owner?.role && (
-                                          <div className="text-xs uppercase text-muted-foreground">
+                                          <div className="text-xs uppercase text-muted-foreground mt-1">
                                             {viewTicket.owner.role}
                                           </div>
                                         )}
                                       </div>
                                       <div className="rounded-md border p-3">
-                                        <div className="text-xs uppercase text-muted-foreground">
+                                        <div className="text-xs uppercase text-muted-foreground mb-1">
                                           Assigned Vet
                                         </div>
                                         <div className="font-medium">
@@ -448,7 +468,6 @@ export default function SupportPage() {
                                           {viewTicket.assignedVet?.phone ??
                                             "No phone number added"}
                                         </div>
-
                                         {viewTicket.assignedVet?.role && (
                                           <div className="text-muted-foreground">
                                             Role: {viewTicket.assignedVet.role}
@@ -456,7 +475,7 @@ export default function SupportPage() {
                                         )}
                                       </div>
                                       <div className="rounded-md border p-3">
-                                        <div className="text-xs uppercase text-muted-foreground">
+                                        <div className="text-xs uppercase text-muted-foreground mb-1">
                                           Assigned Admin
                                         </div>
                                         <div className="font-medium">
@@ -474,15 +493,14 @@ export default function SupportPage() {
                                           {viewTicket.assignedAdmin?.phone ??
                                             "No phone number added."}
                                         </div>
-
                                         {viewTicket.assignedAdmin?.role && (
-                                          <div className="text-xs uppercase text-muted-foreground">
+                                          <div className="text-xs uppercase text-muted-foreground mt-1">
                                             {viewTicket.assignedAdmin.role}
                                           </div>
                                         )}
                                       </div>
                                       <div className="rounded-md border p-3">
-                                        <div className="text-xs uppercase text-muted-foreground">
+                                        <div className="text-xs uppercase text-muted-foreground mb-1">
                                           Clinic
                                         </div>
                                         <div className="font-medium">
@@ -503,7 +521,8 @@ export default function SupportPage() {
                                             "No operating hours provided"}
                                         </div>
                                         <div className="text-muted-foreground">
-                                          Status: {clinicDetails?.status ?? "—"}
+                                          Status:{" "}
+                                          {clinicDetails?.status ?? "—"}
                                         </div>
                                         {clinicDetails?.owner && (
                                           <div className="text-muted-foreground">
@@ -535,7 +554,7 @@ export default function SupportPage() {
                                   </div>
                                 </div>
                               )}
-                              <DialogFooter className="gap-2">
+                              <DialogFooter className="gap-2 flex-wrap">
                                 {viewTicket?.status === "OPEN" && (
                                   <Button
                                     disabled={
@@ -572,6 +591,28 @@ export default function SupportPage() {
                                   >
                                     Reopen
                                   </Button>
+                                )}
+                                {viewTicket && !viewTicket.assignedAdminId && (
+                                  <Button
+                                    variant="secondary"
+                                    disabled={
+                                      escalatingTicketId === viewTicket.id
+                                    }
+                                    onClick={() =>
+                                      escalateToAdmin(viewTicket.id)
+                                    }
+                                  >
+                                    <ArrowUpCircle className="h-4 w-4 mr-2" />
+                                    {escalatingTicketId === viewTicket.id
+                                      ? "Escalating..."
+                                      : "Escalate to Admin"}
+                                  </Button>
+                                )}
+                                {viewTicket?.assignedAdminId && (
+                                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                    Escalated to admin
+                                  </div>
                                 )}
                               </DialogFooter>
                             </DialogContent>

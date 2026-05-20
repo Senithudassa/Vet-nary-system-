@@ -71,7 +71,7 @@ async function main() {
       lastName: 'Vet',
       role: Role.VET,
       phone: '+10000000002',
-      licenseNumber: 'VET-123456',
+      licenseCertificateUrl: null,
       isActive: true,
     },
     create: {
@@ -81,7 +81,7 @@ async function main() {
       lastName: 'Vet',
       role: Role.VET,
       phone: '+10000000002',
-      licenseNumber: 'VET-123456',
+      licenseCertificateUrl: null,
       isActive: true,
     },
   });

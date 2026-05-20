@@ -1,11 +1,11 @@
 import {
-  Body,
   Controller,
   Get,
   Param,
   Patch,
   Post,
   Request,
+  Body,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -19,11 +19,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { TicketsService } from './tickets.service';
-import {
-  CreateTicketDto,
-  EscalateTicketDto,
-  UpdateTicketDto,
-} from './dto/tickets.dto';
+import { CreateTicketDto, UpdateTicketDto } from './dto/tickets.dto';
 
 @ApiTags('Support Tickets')
 @ApiBearerAuth()
@@ -83,13 +79,9 @@ export class TicketsController {
 
   @Patch('support-tickets/:id/escalate')
   @Roles(Role.VET)
-  @ApiOperation({ summary: 'Escalate a ticket to an admin (Vet only)' })
+  @ApiOperation({ summary: 'Escalate a ticket to the main admin (Vet only)' })
   @ApiResponse({ status: 200, description: 'Ticket escalated successfully' })
-  escalateTicket(
-    @Param('id') id: string,
-    @Request() req: any,
-    @Body() dto: EscalateTicketDto,
-  ) {
-    return this.ticketsService.escalateTicket(id, req.user.id, dto);
+  escalateTicket(@Param('id') id: string, @Request() req: any) {
+    return this.ticketsService.escalateTicket(id, req.user.id);
   }
 }

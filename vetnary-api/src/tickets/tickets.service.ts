@@ -6,11 +6,9 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Role, TicketStatus } from '@prisma/client';
-import {
-  CreateTicketDto,
-  EscalateTicketDto,
-  UpdateTicketDto,
-} from './dto/tickets.dto';
+import { CreateTicketDto, UpdateTicketDto } from './dto/tickets.dto';
+
+const MAIN_ADMIN_ID = 'fe5551ce-3fdd-44ef-b490-21d6e02bd4d1';
 
 @Injectable()
 export class TicketsService {
@@ -208,7 +206,7 @@ export class TicketsService {
     });
   }
 
-  async escalateTicket(id: string, vetId: string, dto: EscalateTicketDto) {
+  async escalateTicket(id: string, vetId: string) {
     const ticket = await this.prisma.supportTicket.findUnique({
       where: { id },
     });
@@ -218,12 +216,12 @@ export class TicketsService {
       throw new ForbiddenException('Not authorized');
     }
 
-    await this.assertAdminRole(dto.assignedAdminId);
+    await this.assertAdminRole(MAIN_ADMIN_ID);
 
     return this.prisma.supportTicket.update({
       where: { id },
       data: {
-        assignedAdminId: dto.assignedAdminId,
+        assignedAdminId: MAIN_ADMIN_ID,
         status: TicketStatus.IN_PROGRESS,
       },
       include: {

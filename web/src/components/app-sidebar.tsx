@@ -84,6 +84,13 @@ const allItems = [
     group: "Clinic Operations",
   },
   {
+    title: "Support Tickets",
+    url: "/vet/support",
+    icon: LifeBuoy,
+    requiredRoles: ["vet"],
+    group: "Clinic Operations",
+  },
+  {
     title: "Front Desk",
     url: "/assistant",
     icon: Banknote,

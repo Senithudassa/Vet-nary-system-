@@ -43,6 +43,10 @@ class SupportTicketsService {
     return apiFetch<SupportTicket[]>("/support-tickets");
   }
 
+  async listAssignedTickets(): Promise<SupportTicket[]> {
+    return apiFetch<SupportTicket[]>("/support-tickets/assigned");
+  }
+
   async updateTicket(
     id: string,
     payload: UpdateTicketPayload,
@@ -50,6 +54,12 @@ class SupportTicketsService {
     return apiFetch<SupportTicket>(`/support-tickets/${id}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
+    });
+  }
+
+  async escalateTicket(id: string): Promise<SupportTicket> {
+    return apiFetch<SupportTicket>(`/support-tickets/${id}/escalate`, {
+      method: "PATCH",
     });
   }
 }

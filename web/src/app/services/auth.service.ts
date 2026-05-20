@@ -42,7 +42,12 @@ export interface RegisterDoctorRequest {
   firstName: string;
   lastName: string;
   phone: string;
-  licenseNumber: string;
+  licenseCertificateUrl: string;
+}
+
+export interface UploadCertificateResponse {
+  url: string;
+  publicId: string;
 }
 
 export interface RegisterClinicRequest {
@@ -127,6 +132,23 @@ class AuthService {
     data: RegisterDoctorRequest,
   ): Promise<RegisterDoctorResponse> {
     return post<RegisterDoctorResponse>("/auth/register/doctor", data);
+  }
+
+  async uploadDoctorCertificate(
+    file: File,
+  ): Promise<UploadCertificateResponse> {
+    const formData = new FormData();
+    formData.append("certificate", file);
+
+    const res = await fetch(`${BASE_URL}/auth/doctor/upload-certificate`, {
+      method: "POST",
+      body: formData,
+    });
+
+    const json = await res.json();
+    if (!res.ok)
+      throw new Error(json?.message ?? "Failed to upload certificate.");
+    return json as UploadCertificateResponse;
   }
 
   async registerClinic(

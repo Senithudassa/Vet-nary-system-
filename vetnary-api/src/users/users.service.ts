@@ -62,7 +62,7 @@ export class UsersService {
         role: true,
         phone: true,
         accountNumber: true,
-        licenseNumber: true,
+        licenseCertificateUrl: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,

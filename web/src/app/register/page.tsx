@@ -12,6 +12,9 @@ import {
   Eye,
   EyeOff,
   CreditCard,
+  Upload,
+  X,
+  FileImage,
 } from "lucide-react";
 import {
   Elements,
@@ -28,7 +31,7 @@ interface DoctorForm {
   lastName: string;
   email: string;
   phone: string;
-  licenseNumber: string;
+  licenseCertificateUrl: string;
   password: string;
   confirmPassword: string;
 }
@@ -296,7 +299,7 @@ export default function RegisterPage() {
     lastName: "",
     email: "",
     phone: "",
-    licenseNumber: "",
+    licenseCertificateUrl: "",
     password: "",
     confirmPassword: "",
   });
@@ -331,6 +334,12 @@ export default function RegisterPage() {
   const [paymentError, setPaymentError] = useState("");
   const [mapsReady, setMapsReady] = useState(false);
   const [mapsError, setMapsError] = useState("");
+
+  // Certificate upload state
+  const [certificateFile, setCertificateFile] = useState<File | null>(null);
+  const [certificatePreview, setCertificatePreview] = useState<string>("");
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -561,7 +570,7 @@ export default function RegisterPage() {
       );
 
   // ── Step 1 validation → go to step 2 ─────────────────────────────────────
-  const handleStep1Next = (e: React.FormEvent) => {
+  const handleStep1Next = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -570,14 +579,29 @@ export default function RegisterPage() {
     }
     if (!doctor.email.trim()) return setError("Email is required.");
     if (!doctor.phone.trim()) return setError("Phone number is required.");
-    if (!doctor.licenseNumber.trim())
-      return setError("License number is required.");
+    if (!certificateFile)
+      return setError("Please upload your veterinary license certificate.");
     if (doctor.password.length < 8)
       return setError("Password must be at least 8 characters.");
     if (doctor.password !== doctor.confirmPassword)
       return setError("Passwords do not match.");
 
-    setStep(2);
+    // Upload certificate image first, then proceed
+    setIsUploading(true);
+    try {
+      const { url } =
+        await authService.uploadDoctorCertificate(certificateFile);
+      setDoctor((prev) => ({ ...prev, licenseCertificateUrl: url }));
+      setStep(2);
+    } catch (err: any) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to upload certificate. Please try again.",
+      );
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   // ── Step 2 validation → go to step 3 ─────────────────────────────────────
@@ -637,7 +661,7 @@ export default function RegisterPage() {
         firstName: doctor.firstName,
         lastName: doctor.lastName,
         phone: doctor.phone,
-        licenseNumber: doctor.licenseNumber,
+        licenseCertificateUrl: doctor.licenseCertificateUrl,
       });
 
       // 2️⃣ Register the clinic, linked to the new doctor
@@ -816,22 +840,97 @@ export default function RegisterPage() {
                 </Field>
               </div>
 
-              {/* License Number */}
+              {/* License Certificate Upload */}
               <Field
-                id="licenseNumber"
-                label="Veterinary License Number"
+                id="licenseCertificate"
+                label="Veterinary License Certificate"
                 required
               >
-                <input
-                  id="licenseNumber"
-                  type="text"
-                  placeholder="e.g. VET-12345"
-                  required
-                  value={doctor.licenseNumber}
-                  onChange={setDoctorField("licenseNumber")}
-                  className={inputCls}
-                  style={inputStyle}
-                />
+                <div className="space-y-2">
+                  {/* Hidden file input */}
+                  <input
+                    ref={fileInputRef}
+                    id="licenseCertificate"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setCertificateFile(file);
+                      const reader = new FileReader();
+                      reader.onloadend = () =>
+                        setCertificatePreview(reader.result as string);
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+
+                  {!certificateFile ? (
+                    /* Drop zone */
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full border-black border-dashed rounded-md px-4 py-8 bg-[#FAF9F6] flex flex-col items-center gap-2 hover:bg-indigo-50 transition-colors focus:outline-none focus:ring-3 focus:ring-[#818CF8]"
+                      style={{ borderWidth: "3px" }}
+                    >
+                      <FileImage className="w-9 h-9 text-[#818CF8]" />
+                      <span className="text-sm font-black text-gray-700">
+                        Click to select certificate image
+                      </span>
+                      <span className="text-xs font-semibold text-gray-400">
+                        JPEG · PNG · WEBP
+                      </span>
+                    </button>
+                  ) : (
+                    /* Preview card */
+                    <div
+                      className="relative border-black rounded-md overflow-hidden bg-[#FAF9F6]"
+                      style={{ borderWidth: "3px" }}
+                    >
+                      <img
+                        src={certificatePreview}
+                        alt="Certificate preview"
+                        className="w-full object-cover max-h-52"
+                      />
+                      {/* Remove button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCertificateFile(null);
+                          setCertificatePreview("");
+                          if (fileInputRef.current)
+                            fileInputRef.current.value = "";
+                        }}
+                        className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 border-2 border-black transition-colors"
+                        aria-label="Remove certificate image"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                      {/* File info bar */}
+                      <div className="px-3 py-2 bg-white border-t-2 border-black flex items-center gap-2">
+                        <Upload className="w-3.5 h-3.5 text-[#818CF8] shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-black text-black truncate">
+                            {certificateFile.name}
+                          </p>
+                          <p className="text-xs font-semibold text-gray-500">
+                            {(certificateFile.size / 1024).toFixed(1)} KB
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="ml-auto text-xs font-black text-[#818CF8] underline hover:no-underline shrink-0"
+                        >
+                          Change
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500 font-medium">
+                    Upload a clear photo or scan of your license certificate.
+                  </p>
+                </div>
               </Field>
 
               {/* Password */}
@@ -907,10 +1006,39 @@ export default function RegisterPage() {
             <div className="px-8 pb-8 space-y-4">
               <button
                 type="submit"
-                className="w-full bg-[#818CF8] text-white font-black text-base py-4 border-4 border-black rounded-lg transition-transform active:translate-y-1 focus:outline-none focus:ring-3 focus:ring-offset-2 focus:ring-[#818CF8] flex items-center justify-center gap-2"
+                disabled={isUploading}
+                className="w-full bg-[#818CF8] text-white font-black text-base py-4 border-4 border-black rounded-lg transition-transform active:translate-y-1 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-3 focus:ring-offset-2 focus:ring-[#818CF8] flex items-center justify-center gap-2"
                 style={{ boxShadow: "5px 5px 0px #000" }}
               >
-                Next — Payment <ChevronRight className="w-5 h-5" />
+                {isUploading ? (
+                  <>
+                    <svg
+                      className="animate-spin w-4 h-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8z"
+                      />
+                    </svg>
+                    Uploading Certificate…
+                  </>
+                ) : (
+                  <>
+                    Next — Clinic Info <ChevronRight className="w-5 h-5" />
+                  </>
+                )}
               </button>
 
               <p className="text-center text-sm font-semibold text-gray-600">

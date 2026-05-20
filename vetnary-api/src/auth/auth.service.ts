@@ -81,7 +81,7 @@ export class AuthService {
         firstName: dto.firstName,
         lastName: dto.lastName,
         phone: dto.phone,
-        licenseNumber: dto.licenseNumber,
+        licenseCertificateUrl: dto.licenseCertificateUrl,
         role: Role.VET,
       },
     });
@@ -143,7 +143,14 @@ export class AuthService {
       throw new UnauthorizedException('Account is inactive');
     }
 
-    return this.generateTokens(user.id, user.email, user.role);
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
+
+    return {
+      ...tokens,
+      ...(user.role === Role.VET && {
+        licenseCertificateUrl: user.licenseCertificateUrl,
+      }),
+    };
   }
 
   async loginClinic(dto: LoginDto) {

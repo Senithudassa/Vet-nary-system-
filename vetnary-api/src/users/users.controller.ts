@@ -36,7 +36,7 @@ export class UsersController {
   }
 
   @Get(':id')
-  @Roles(Role.MAIN_ADMIN, Role.MINOR_ADMIN)
+  @Roles(Role.MAIN_ADMIN, Role.MINOR_ADMIN, Role.VET)
   @ApiOperation({ summary: 'Get user by id' })
   @ApiResponse({ status: 200, description: 'User retrieved successfully' })
   findOne(@Param('id') id: string) {

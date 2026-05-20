@@ -68,10 +68,14 @@ export class RegisterClinicDto {
 }
 
 export class RegisterDoctorDto extends RegisterCustomerDto {
-  @ApiProperty({ example: 'VET-12345' })
+  @ApiProperty({
+    example:
+      'https://res.cloudinary.com/demo/image/upload/v1234567890/vetnary-doctor-certificates/1234567890-licence.jpg',
+    description: 'URL of the uploaded licence certificate image',
+  })
   @IsNotEmpty()
   @IsString()
-  licenseNumber: string;
+  licenseCertificateUrl: string;
 }
 
 export class LoginDto {

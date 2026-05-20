@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEnum,
   IsNotEmpty,
@@ -9,12 +9,12 @@ import {
 import { TicketStatus } from '@prisma/client';
 
 export class CreateTicketDto {
-  @ApiProperty({ example: 'Bug report' })
+  @ApiPropertyOptional({ example: 'Bug report' })
   @IsNotEmpty()
   @IsString()
   subject: string;
 
-  @ApiProperty({ example: 'I cannot see my pet list' })
+  @ApiPropertyOptional({ example: 'I cannot see my pet list' })
   @IsNotEmpty()
   @IsString()
   description: string;
@@ -65,14 +65,4 @@ export class UpdateTicketDto {
   @IsOptional()
   @IsUUID()
   assignedAdminId?: string;
-}
-
-export class EscalateTicketDto {
-  @ApiProperty({
-    example: 'admin-uuid',
-    description: 'Admin to receive the ticket',
-  })
-  @IsNotEmpty()
-  @IsUUID()
-  assignedAdminId: string;
 }

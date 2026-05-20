@@ -58,7 +58,7 @@ export interface UserSummary {
   role: "MAIN_ADMIN" | "MINOR_ADMIN" | "VET" | "CUSTOMER";
   phone?: string | null;
   accountNumber?: string | null;
-  licenseNumber?: string | null;
+  licenseCertificateUrl?: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
